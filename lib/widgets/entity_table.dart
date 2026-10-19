@@ -132,9 +132,9 @@ class EntityTable<T> extends StatelessWidget {
                         onChanged: (_) => onToggleSelect!(idOf(item)),
                       ),
                     Expanded(
-                      child: Text(
-                        columns.first.build(item).toString(),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      child: DefaultTextStyle(
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
+                        child: columns.first.build(item),
                       ),
                     ),
                   ],
