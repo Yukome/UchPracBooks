@@ -66,6 +66,11 @@ class BookListNotifier extends ChangeNotifier {
     await load();
   }
 
+  Future<void> hardDeleteOne(int id) async {
+    await _repository.hardDelete(id);
+    await load();
+  }
+
   Future<void> restoreOne(int id) async {
     await _repository.restore(id);
     await load();

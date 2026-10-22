@@ -30,4 +30,20 @@ class Author {
       deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'fullName': fullName,
+    'birthYear': birthYear,
+    'country': country,
+    'deletedAt': deletedAt?.toIso8601String(),
+  };
+
+  factory Author.fromJson(Map<String, dynamic> json) => Author(
+    id: json['id'] as int? ?? 0,
+    fullName: json['fullName'] as String? ?? '',
+    birthYear: json['birthYear'] as int?,
+    country: json['country'] as String? ?? '',
+    deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
+  );
 }

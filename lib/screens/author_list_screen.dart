@@ -7,6 +7,7 @@ import '../widgets/entity_table.dart';
 import '../widgets/pagination_bar.dart';
 import '../models/author.dart';
 import '../models/author_query.dart';
+import '../main.dart';
 
 class AuthorListScreen extends StatefulWidget {
   const AuthorListScreen({super.key});
@@ -15,7 +16,7 @@ class AuthorListScreen extends StatefulWidget {
   State<AuthorListScreen> createState() => _AuthorListScreenState();
 }
 
-class _AuthorListScreenState extends State<AuthorListScreen> {
+class _AuthorListScreenState extends State<AuthorListScreen> with RouteAware {
   Timer? _debounce;
 
   @override
@@ -45,9 +46,21 @@ class _AuthorListScreenState extends State<AuthorListScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     _debounce?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    context.read<AuthorListNotifier>().load();
   }
 
   void _updateQuery(AuthorQuery newQuery) {
@@ -83,6 +96,10 @@ class _AuthorListScreenState extends State<AuthorListScreen> {
       appBar: AppBar(
         title: const Text('Авторы'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () => context.go('/authors/new'),
+          ),
           TextButton.icon(
             onPressed: () {
               context.read<AuthorListNotifier>().clearSelection();
@@ -207,7 +224,9 @@ class _AuthorListScreenState extends State<AuthorListScreen> {
                         actions: (a) => [
                           IconButton(
                             icon: const Icon(Icons.edit),
-                            onPressed: a.isDeleted ? null : () {}
+                            onPressed: a.isDeleted 
+                                ? null 
+                                : () => context.go('/authors/${a.id}/edit'),
                           ),
                           if (a.isDeleted)
                             IconButton(
@@ -220,14 +239,28 @@ class _AuthorListScreenState extends State<AuthorListScreen> {
                               },
                             )
                           else
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              tooltip: 'Удалить',
-                              onPressed: () async {
-                                await context.read<AuthorListNotifier>().deleteOne(a.id);
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert),
+                              tooltip: 'Действия',
+                              onSelected: (value) async {
+                                if (value == 'soft') {
+                                  await context.read<AuthorListNotifier>().deleteOne(a.id);
+                                } else if (value == 'hard') {
+                                  await context.read<AuthorListNotifier>().hardDeleteOne(a.id);
+                                }
                                 if (!mounted) return;
                                 _updateQuery(context.read<AuthorListNotifier>().query);
                               },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'soft',
+                                  child: Text('В корзину (логически)'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'hard',
+                                  child: Text('Удалить навсегда', style: TextStyle(color: Colors.red)),
+                                ),
+                              ],
                             ),
                         ],
                       ),

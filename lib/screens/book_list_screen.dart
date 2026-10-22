@@ -7,7 +7,11 @@ import '../widgets/entity_table.dart';
 import '../widgets/pagination_bar.dart';
 import '../models/book.dart';
 import '../models/book_query.dart';
+import '../models/publisher.dart';
+import '../models/publisher_query.dart';
+import '../repositories/publisher_repository.dart';
 import '../models/filter_data.dart';
+import '../main.dart';
 
 class BookListScreen extends StatefulWidget {
   const BookListScreen({super.key});
@@ -16,14 +20,18 @@ class BookListScreen extends StatefulWidget {
   State<BookListScreen> createState() => _BookListScreenState();
 }
 
-class _BookListScreenState extends State<BookListScreen> {
+class _BookListScreenState extends State<BookListScreen> with RouteAware {
   Timer? _debounce;
+  List<Publisher> _publishers = [];
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      final pubRepo = context.read<PublisherRepository>();
+      final pubsResult = await pubRepo.find(const PublisherQuery(size: 1000));
+      if (mounted) setState(() => _publishers = pubsResult.items);
       final uri = GoRouterState.of(context).uri;
       final q = uri.queryParameters;
       
@@ -48,9 +56,21 @@ class _BookListScreenState extends State<BookListScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     _debounce?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    context.read<BookListNotifier>().load();
   }
 
   void _updateQuery(BookQuery newQuery) {
@@ -88,6 +108,11 @@ class _BookListScreenState extends State<BookListScreen> {
       appBar: AppBar(
         title: const Text('Каталог книг'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: 'Добавить книгу',
+            onPressed: () => context.go('/books/new'),
+          ),
           TextButton.icon(
             onPressed: () {
               context.read<BookListNotifier>().clearSelection();
@@ -158,7 +183,7 @@ class _BookListScreenState extends State<BookListScreen> {
                     decoration: const InputDecoration(labelText: 'Издательство', border: OutlineInputBorder(), isDense: true),
                     items: [
                       const DropdownMenuItem(value: null, child: Text('Все', overflow: TextOverflow.ellipsis)),
-                      ...publishers.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, overflow: TextOverflow.ellipsis))),
+                      ..._publishers.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name, overflow: TextOverflow.ellipsis))),
                     ],
                     onChanged: (val) => _updateQuery(notifier.query.copyWith(publisherId: val, page: 1)),
                   ),
@@ -251,7 +276,9 @@ class _BookListScreenState extends State<BookListScreen> {
                         actions: (b) => [
                           IconButton(
                             icon: const Icon(Icons.edit), 
-                            onPressed: b.isDeleted ? null : () {}
+                            onPressed: b.isDeleted 
+                                ? null 
+                                : () => context.go('/books/${b.id}/edit'),
                           ),
                           if (b.isDeleted)
                             IconButton(
@@ -264,14 +291,28 @@ class _BookListScreenState extends State<BookListScreen> {
                               },
                             )
                           else
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              tooltip: 'Удалить',
-                              onPressed: () async {
-                                await context.read<BookListNotifier>().deleteOne(b.id);
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert),
+                              tooltip: 'Действия',
+                              onSelected: (value) async {
+                                if (value == 'soft') {
+                                  await context.read<BookListNotifier>().deleteOne(b.id);
+                                } else if (value == 'hard') {
+                                  await context.read<BookListNotifier>().hardDeleteOne(b.id);
+                                }
                                 if (!mounted) return;
                                 _updateQuery(context.read<BookListNotifier>().query);
                               },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'soft',
+                                  child: Text('В корзину (логически)'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'hard',
+                                  child: Text('Удалить навсегда', style: TextStyle(color: Colors.red)),
+                                ),
+                              ],
                             ),
                         ],
                       ),
