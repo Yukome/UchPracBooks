@@ -60,12 +60,14 @@ class _GenreFormScreenState extends State<GenreFormScreen> {
           label: 'Название',
           controller: _nameController,
           validator: (val) => Validators.length(val, 2, 100),
+          fieldKey: 'name',
         ),
         FormFieldSpec(
           label: 'Описание',
           controller: _descriptionController,
           validator: (val) => Validators.length(val, 2, 500),
           maxLines: 3,
+          fieldKey: 'description',
         ),
       ],
     );

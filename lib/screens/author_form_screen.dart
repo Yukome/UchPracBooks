@@ -63,6 +63,7 @@ class _AuthorFormScreenState extends State<AuthorFormScreen> {
           label: 'ФИО',
           controller: _nameController,
           validator: (val) => Validators.length(val, 2, 100),
+          fieldKey: 'fullName',
         ),
         FormFieldSpec(
           label: 'Год рождения (опционально)',
@@ -72,11 +73,13 @@ class _AuthorFormScreenState extends State<AuthorFormScreen> {
             if (val == null || val.isEmpty) return null;
             return Validators.number(val, min: 1000, max: 2026);
           },
+          fieldKey: 'birthYear',
         ),
         FormFieldSpec(
           label: 'Страна',
           controller: _countryController,
           validator: (val) => Validators.required(val),
+          fieldKey: 'country',
         ),
       ],
     );

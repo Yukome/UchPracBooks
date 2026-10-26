@@ -63,11 +63,13 @@ class _PublisherFormScreenState extends State<PublisherFormScreen> {
           label: 'Название',
           controller: _nameController,
           validator: (val) => Validators.length(val, 2, 100),
+          fieldKey: 'name',
         ),
         FormFieldSpec(
           label: 'Город',
           controller: _cityController,
           validator: (val) => Validators.required(val),
+          fieldKey: 'city',
         ),
         FormFieldSpec(
           label: 'Год основания (опционально)',
@@ -77,6 +79,7 @@ class _PublisherFormScreenState extends State<PublisherFormScreen> {
             if (val == null || val.isEmpty) return null;
             return Validators.number(val, min: 1400, max: 2026);
           },
+          fieldKey: 'foundedYear',
         ),
       ],
     );

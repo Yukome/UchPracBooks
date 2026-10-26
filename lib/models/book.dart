@@ -76,9 +76,12 @@ class Book {
     isbn: json['isbn'] as String? ?? '',
     year: json['year'] as int? ?? 0,
     pages: json['pages'] as int? ?? 0,
-    publisherId: json['publisherId'] as int? ?? 0,
-    authorIds: (json['authorIds'] as List?)?.cast<int>() ?? const [],
-    genreIds: (json['genreIds'] as List?)?.cast<int>() ?? const [],
+    publisherId: json['publisherId'] as int? ?? 
+        ((json['publisher'] as Map<String, dynamic>?)?['id'] as int? ?? 0),
+    authorIds: (json['authorIds'] as List?)?.cast<int>() ?? 
+        ((json['authors'] as List?)?.map((a) => (a as Map)['id'] as int).toList() ?? const []),
+    genreIds: (json['genreIds'] as List?)?.cast<int>() ?? 
+        ((json['genres'] as List?)?.map((g) => (g as Map)['id'] as int).toList() ?? const []),
     copiesTotal: json['copiesTotal'] as int? ?? 0,
     copiesAvailable: json['copiesAvailable'] as int? ?? 0,
     deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),

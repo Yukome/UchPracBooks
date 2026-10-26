@@ -1,4 +1,6 @@
+import 'package:dio/dio.dart' show CancelToken;
 import 'package:flutter/foundation.dart';
+import '../core/api_exceptions.dart';
 import '../models/publisher.dart';
 import '../models/publisher_query.dart';
 import '../models/page_result.dart';
@@ -13,24 +15,50 @@ class PublisherListNotifier extends ChangeNotifier {
   PublisherQuery _query = const PublisherQuery();
   PageResult<Publisher> _result = PageResult.empty();
   PublisherLoadStatus _status = PublisherLoadStatus.idle;
+  String? _error;
   final Set<int> _selected = {};
+  bool _disposed = false;
+  CancelToken? _cancelToken;
 
   PublisherQuery get query => _query;
   PageResult<Publisher> get result => _result;
   PublisherLoadStatus get status => _status;
+  String? get error => _error;
   Set<int> get selected => Set.unmodifiable(_selected);
   bool get hasSelection => _selected.isNotEmpty;
 
+  @override
+  void dispose() {
+    _disposed = true;
+    _cancelToken?.cancel('dispose');
+    super.dispose();
+  }
+
+  void _safeNotify() {
+    if (!_disposed) notifyListeners();
+  }
+
   Future<void> load() async {
+    _cancelToken?.cancel('superseded');
+    final token = _cancelToken = CancelToken();
+
     _status = PublisherLoadStatus.loading;
-    notifyListeners();
+    _error = null;
+    _safeNotify();
+
     try {
-      _result = await _repository.find(_query);
+      final result = await _repository.find(_query, cancelToken: token);
+      if (token.isCancelled) return;
+      _result = result;
       _status = PublisherLoadStatus.success;
+    } on CancelledException {
+      return;
     } catch (e) {
+      if (token.isCancelled) return;
+      _error = e.toString();
       _status = PublisherLoadStatus.error;
     }
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> applyQuery(PublisherQuery next) async {
@@ -41,22 +69,18 @@ class PublisherListNotifier extends ChangeNotifier {
 
   void toggleSelection(int id) {
     _selected.contains(id) ? _selected.remove(id) : _selected.add(id);
-    notifyListeners();
+    _safeNotify();
   }
 
   void clearSelection() {
     _selected.clear();
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> deleteSelected() async {
-    try {
-      await _repository.deleteMany(_selected.toList());
-      _selected.clear();
-      await load();
-    } catch (e) {
-      rethrow;
-    }
+    await _repository.deleteMany(_selected.toList());
+    _selected.clear();
+    await load();
   }
 
   Future<void> deleteOne(int id) async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import '../core/api_exceptions.dart';
 
 class FormFieldSpec {
   final String label;
@@ -10,6 +11,7 @@ class FormFieldSpec {
   final String? hint;
   final List<TextInputFormatter>? inputFormatters;
   final int? maxLines;
+  final String? fieldKey;
 
   const FormFieldSpec({
     required this.label,
@@ -19,6 +21,7 @@ class FormFieldSpec {
     this.hint,
     this.inputFormatters,
     this.maxLines,
+    this.fieldKey,
   });
 }
 
@@ -48,6 +51,7 @@ class _EntityFormState extends State<EntityForm> {
   final _formKey = GlobalKey<FormState>();
   bool _hasChanges = false;
   bool _isSaving = false;
+  Map<String, String> _serverErrors = {};
 
   @override
   void initState() {
@@ -58,7 +62,10 @@ class _EntityFormState extends State<EntityForm> {
   }
 
   void _markChanged() {
-    if (!_hasChanges) setState(() => _hasChanges = true);
+    setState(() {
+      _hasChanges = true;
+      _serverErrors.clear();
+    });
   }
 
   @override
@@ -70,6 +77,7 @@ class _EntityFormState extends State<EntityForm> {
   }
 
   Future<void> _handleSubmit() async {
+    setState(() => _serverErrors = {});
     if (!_formKey.currentState!.validate()) return;
     
     setState(() => _isSaving = true);
@@ -79,15 +87,27 @@ class _EntityFormState extends State<EntityForm> {
         _hasChanges = false;
         context.go(widget.backPath);
       }
-    } catch (e) {
+    } on ValidationException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-        );
+        setState(() => _serverErrors = e.errors);
+        _formKey.currentState!.validate();
       }
+    } on ConflictException catch (e) {
+      _showSnackBar(e.message, Colors.orange);
+    } on ApiException catch (e) {
+      _showSnackBar(e.message, Colors.red);
+    } catch (e) {
+      _showSnackBar(e.toString(), Colors.red);
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  void _showSnackBar(String message, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: color),
+    );
   }
 
   Future<void> _onPopInvoked(bool didPop, Object? result) async {
@@ -151,9 +171,15 @@ class _EntityFormState extends State<EntityForm> {
                           labelText: field.label,
                           hintText: field.hint,
                           border: const OutlineInputBorder(),
+                          errorText: field.fieldKey != null ? _serverErrors[field.fieldKey] : null,
                         ),
                         keyboardType: field.keyboardType,
-                        validator: field.validator,
+                        validator: (val) {
+                          if (field.fieldKey != null && _serverErrors.containsKey(field.fieldKey)) {
+                            return _serverErrors[field.fieldKey];
+                          }
+                          return field.validator?.call(val);
+                        },
                         inputFormatters: field.inputFormatters,
                         maxLines: field.maxLines,
                       ),

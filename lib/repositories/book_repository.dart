@@ -1,9 +1,10 @@
+import 'package:dio/dio.dart' show CancelToken;
 import '../models/book.dart';
 import '../models/book_query.dart';
 import '../models/page_result.dart';
 
 abstract interface class BookRepository {
-  Future<PageResult<Book>> find(BookQuery query);
+  Future<PageResult<Book>> find(BookQuery query, {CancelToken? cancelToken});
   Future<Book?> findById(int id);
   Future<Book> create(Book book);
   Future<Book> update(Book book);

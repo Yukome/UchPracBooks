@@ -130,9 +130,16 @@ class _AuthorListScreenState extends State<AuthorListScreen> with RouteAware {
                 if (notifier.hasSelection)
                   FilledButton.icon(
                     onPressed: () async {
-                      await context.read<AuthorListNotifier>().deleteSelected();
-                      if (!mounted) return;
-                      _updateQuery(context.read<AuthorListNotifier>().query);
+                      try {
+                        await context.read<AuthorListNotifier>().deleteSelected();
+                        if (!mounted) return;
+                        _updateQuery(context.read<AuthorListNotifier>().query);
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.delete),
                     label: Text('Удалить (${notifier.selected.length})'),
@@ -187,8 +194,19 @@ class _AuthorListScreenState extends State<AuthorListScreen> with RouteAware {
             child: switch (notifier.status) {
               AuthorLoadStatus.idle || AuthorLoadStatus.loading =>
                 const Center(child: CircularProgressIndicator()),
-              AuthorLoadStatus.error =>
-                const Center(child: Text('Ошибка загрузки')),
+              AuthorLoadStatus.error => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(notifier.error ?? 'Ошибка загрузки', textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
+                    FilledButton(
+                      onPressed: () => context.read<AuthorListNotifier>().load(),
+                      child: const Text('Повторить'),
+                    ),
+                  ],
+                ),
+              ),
               AuthorLoadStatus.success when notifier.result.items.isEmpty =>
                 const Center(child: Text('Авторов не найдено')),
               AuthorLoadStatus.success =>
@@ -233,9 +251,16 @@ class _AuthorListScreenState extends State<AuthorListScreen> with RouteAware {
                               icon: const Icon(Icons.restore, color: Colors.green),
                               tooltip: 'Восстановить',
                               onPressed: () async {
-                                await context.read<AuthorListNotifier>().restoreOne(a.id);
-                                if (!mounted) return;
-                                _updateQuery(context.read<AuthorListNotifier>().query);
+                                try {
+                                  await context.read<AuthorListNotifier>().restoreOne(a.id);
+                                  if (!mounted) return;
+                                  _updateQuery(context.read<AuthorListNotifier>().query);
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                  );
+                                }
                               },
                             )
                           else
@@ -243,13 +268,20 @@ class _AuthorListScreenState extends State<AuthorListScreen> with RouteAware {
                               icon: const Icon(Icons.more_vert),
                               tooltip: 'Действия',
                               onSelected: (value) async {
-                                if (value == 'soft') {
-                                  await context.read<AuthorListNotifier>().deleteOne(a.id);
-                                } else if (value == 'hard') {
-                                  await context.read<AuthorListNotifier>().hardDeleteOne(a.id);
+                                try {
+                                  if (value == 'soft') {
+                                    await context.read<AuthorListNotifier>().deleteOne(a.id);
+                                  } else if (value == 'hard') {
+                                    await context.read<AuthorListNotifier>().hardDeleteOne(a.id);
+                                  }
+                                  if (!mounted) return;
+                                  _updateQuery(context.read<AuthorListNotifier>().query);
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                  );
                                 }
-                                if (!mounted) return;
-                                _updateQuery(context.read<AuthorListNotifier>().query);
                               },
                               itemBuilder: (context) => [
                                 const PopupMenuItem(

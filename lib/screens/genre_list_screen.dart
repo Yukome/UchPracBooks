@@ -126,9 +126,16 @@ class _GenreListScreenState extends State<GenreListScreen> with RouteAware {
                 if (notifier.hasSelection)
                   FilledButton.icon(
                     onPressed: () async {
-                      await context.read<GenreListNotifier>().deleteSelected();
-                      if (!mounted) return;
-                      _updateQuery(context.read<GenreListNotifier>().query);
+                      try {
+                        await context.read<GenreListNotifier>().deleteSelected();
+                        if (!mounted) return;
+                        _updateQuery(context.read<GenreListNotifier>().query);
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.delete),
                     label: Text('Удалить (${notifier.selected.length})'),
@@ -157,8 +164,19 @@ class _GenreListScreenState extends State<GenreListScreen> with RouteAware {
             child: switch (notifier.status) {
               GenreLoadStatus.idle || GenreLoadStatus.loading =>
                 const Center(child: CircularProgressIndicator()),
-              GenreLoadStatus.error =>
-                const Center(child: Text('Ошибка загрузки')),
+              GenreLoadStatus.error => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(notifier.error ?? 'Ошибка загрузки', textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
+                    FilledButton(
+                      onPressed: () => context.read<GenreListNotifier>().load(),
+                      child: const Text('Повторить'),
+                    ),
+                  ],
+                ),
+              ),
               GenreLoadStatus.success when notifier.result.items.isEmpty =>
                 const Center(child: Text('Жанров не найдено')),
               GenreLoadStatus.success =>
@@ -199,9 +217,16 @@ class _GenreListScreenState extends State<GenreListScreen> with RouteAware {
                             IconButton(
                               icon: const Icon(Icons.restore, color: Colors.green),
                               onPressed: () async {
-                                await context.read<GenreListNotifier>().restoreOne(g.id);
-                                if (!mounted) return;
-                                _updateQuery(context.read<GenreListNotifier>().query);
+                                try {
+                                  await context.read<GenreListNotifier>().restoreOne(g.id);
+                                  if (!mounted) return;
+                                  _updateQuery(context.read<GenreListNotifier>().query);
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                  );
+                                }
                               },
                             )
                           else
@@ -209,13 +234,20 @@ class _GenreListScreenState extends State<GenreListScreen> with RouteAware {
                               icon: const Icon(Icons.more_vert),
                               tooltip: 'Действия',
                               onSelected: (value) async {
-                                if (value == 'soft') {
-                                  await context.read<GenreListNotifier>().deleteOne(g.id);
-                                } else if (value == 'hard') {
-                                  await context.read<GenreListNotifier>().hardDeleteOne(g.id);
+                                try {
+                                  if (value == 'soft') {
+                                    await context.read<GenreListNotifier>().deleteOne(g.id);
+                                  } else if (value == 'hard') {
+                                    await context.read<GenreListNotifier>().hardDeleteOne(g.id);
+                                  }
+                                  if (!mounted) return;
+                                  _updateQuery(context.read<GenreListNotifier>().query);
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                  );
                                 }
-                                if (!mounted) return;
-                                _updateQuery(context.read<GenreListNotifier>().query);
                               },
                               itemBuilder: (context) => [
                                 const PopupMenuItem(

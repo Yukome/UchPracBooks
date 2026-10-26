@@ -1,4 +1,6 @@
+import 'package:dio/dio.dart' show CancelToken;
 import 'package:flutter/foundation.dart';
+import '../core/api_exceptions.dart';
 import '../models/book.dart';
 import '../models/book_query.dart';
 import '../models/page_result.dart';
@@ -8,7 +10,6 @@ enum LoadStatus { idle, loading, success, error }
 
 class BookListNotifier extends ChangeNotifier {
   final BookRepository _repository;
-
   BookListNotifier(this._repository);
 
   BookQuery _query = const BookQuery();
@@ -16,6 +17,8 @@ class BookListNotifier extends ChangeNotifier {
   LoadStatus _status = LoadStatus.idle;
   String? _error;
   final Set<int> _selected = {};
+  bool _disposed = false;
+  CancelToken? _cancelToken;
 
   BookQuery get query => _query;
   PageResult<Book> get result => _result;
@@ -23,20 +26,39 @@ class BookListNotifier extends ChangeNotifier {
   String? get error => _error;
   Set<int> get selected => Set.unmodifiable(_selected);
   bool get hasSelection => _selected.isNotEmpty;
-  
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _cancelToken?.cancel('dispose');
+    super.dispose();
+  }
+
+  void _safeNotify() {
+    if (!_disposed) notifyListeners();
+  }
+
   Future<void> load() async {
+    _cancelToken?.cancel('superseded');
+    final token = _cancelToken = CancelToken();
+
     _status = LoadStatus.loading;
     _error = null;
-    notifyListeners();
+    _safeNotify();
 
     try {
-      _result = await _repository.find(_query);
+      final result = await _repository.find(_query, cancelToken: token);
+      if (token.isCancelled) return;
+      _result = result;
       _status = LoadStatus.success;
+    } on CancelledException {
+      return;
     } catch (e) {
-      _error = 'Не удалось загрузить список: $e';
+      if (token.isCancelled) return;
+      _error = e.toString();
       _status = LoadStatus.error;
     }
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> applyQuery(BookQuery next) async {
@@ -47,12 +69,12 @@ class BookListNotifier extends ChangeNotifier {
 
   void toggleSelection(int id) {
     _selected.contains(id) ? _selected.remove(id) : _selected.add(id);
-    notifyListeners();
+    _safeNotify();
   }
 
   void clearSelection() {
     _selected.clear();
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> deleteSelected() async {

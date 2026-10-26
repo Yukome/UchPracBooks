@@ -126,9 +126,16 @@ class _ReaderListScreenState extends State<ReaderListScreen> with RouteAware {
                 if (notifier.hasSelection)
                   FilledButton.icon(
                     onPressed: () async {
-                      await context.read<ReaderListNotifier>().deleteSelected();
-                      if (!mounted) return;
-                      _updateQuery(context.read<ReaderListNotifier>().query);
+                      try {
+                        await context.read<ReaderListNotifier>().deleteSelected();
+                        if (!mounted) return;
+                        _updateQuery(context.read<ReaderListNotifier>().query);
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.delete),
                     label: Text('Удалить (${notifier.selected.length})'),
@@ -157,8 +164,19 @@ class _ReaderListScreenState extends State<ReaderListScreen> with RouteAware {
             child: switch (notifier.status) {
               ReaderLoadStatus.idle || ReaderLoadStatus.loading =>
                 const Center(child: CircularProgressIndicator()),
-              ReaderLoadStatus.error =>
-                const Center(child: Text('Ошибка загрузки')),
+              ReaderLoadStatus.error => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(notifier.error ?? 'Ошибка загрузки', textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
+                    FilledButton(
+                      onPressed: () => context.read<ReaderListNotifier>().load(),
+                      child: const Text('Повторить'),
+                    ),
+                  ],
+                ),
+              ),
               ReaderLoadStatus.success when notifier.result.items.isEmpty =>
                 const Center(child: Text('Читателей не найдено')),
               ReaderLoadStatus.success =>
@@ -200,9 +218,16 @@ class _ReaderListScreenState extends State<ReaderListScreen> with RouteAware {
                             IconButton(
                               icon: const Icon(Icons.restore, color: Colors.green),
                               onPressed: () async {
-                                await context.read<ReaderListNotifier>().restoreOne(r.id);
-                                if (!mounted) return;
-                                _updateQuery(context.read<ReaderListNotifier>().query);
+                                try {
+                                  await context.read<ReaderListNotifier>().restoreOne(r.id);
+                                  if (!mounted) return;
+                                  _updateQuery(context.read<ReaderListNotifier>().query);
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                  );
+                                }
                               },
                             )
                           else
@@ -210,13 +235,20 @@ class _ReaderListScreenState extends State<ReaderListScreen> with RouteAware {
                               icon: const Icon(Icons.more_vert),
                               tooltip: 'Действия',
                               onSelected: (value) async {
-                                if (value == 'soft') {
-                                  await context.read<ReaderListNotifier>().deleteOne(r.id);
-                                } else if (value == 'hard') {
-                                  await context.read<ReaderListNotifier>().hardDeleteOne(r.id);
+                                try {
+                                  if (value == 'soft') {
+                                    await context.read<ReaderListNotifier>().deleteOne(r.id);
+                                  } else if (value == 'hard') {
+                                    await context.read<ReaderListNotifier>().hardDeleteOne(r.id);
+                                  }
+                                  if (!mounted) return;
+                                  _updateQuery(context.read<ReaderListNotifier>().query);
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                  );
                                 }
-                                if (!mounted) return;
-                                _updateQuery(context.read<ReaderListNotifier>().query);
                               },
                               itemBuilder: (context) => [
                                 const PopupMenuItem(

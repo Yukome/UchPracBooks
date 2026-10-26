@@ -10,6 +10,7 @@ import '../models/book_query.dart';
 import '../models/publisher.dart';
 import '../models/publisher_query.dart';
 import '../repositories/publisher_repository.dart';
+import '../repositories/book_repository.dart';
 import '../models/filter_data.dart';
 import '../main.dart';
 
@@ -23,6 +24,7 @@ class BookListScreen extends StatefulWidget {
 class _BookListScreenState extends State<BookListScreen> with RouteAware {
   Timer? _debounce;
   List<Publisher> _publishers = [];
+  List<int> _availableGenreIds = [];
 
   @override
   void initState() {
@@ -32,6 +34,7 @@ class _BookListScreenState extends State<BookListScreen> with RouteAware {
       final pubRepo = context.read<PublisherRepository>();
       final pubsResult = await pubRepo.find(const PublisherQuery(size: 1000));
       if (mounted) setState(() => _publishers = pubsResult.items);
+      setState(() => _availableGenreIds = genres.keys.toList());
       final uri = GoRouterState.of(context).uri;
       final q = uri.queryParameters;
       
@@ -92,6 +95,34 @@ class _BookListScreenState extends State<BookListScreen> with RouteAware {
     context.go(uri.replace(queryParameters: newParams).toString());
   }
 
+  Future<void> _onPublisherFilterChanged(int? publisherId) async {
+    final newQuery = context.read<BookListNotifier>().query.copyWith(
+      publisherId: publisherId,
+      genreId: null, 
+      page: 1,
+    );
+
+    if (publisherId == null) {
+      setState(() => _availableGenreIds = genres.keys.toList());
+    } else {
+      final repo = context.read<BookRepository>();
+      final result = await repo.find(BookQuery(publisherId: publisherId, size: 1000));
+      
+      final genreIds = <int>{};
+      for (final book in result.items) {
+        genreIds.addAll(book.genreIds);
+      }
+
+      if (mounted) {
+        setState(() {
+          _availableGenreIds = genreIds.isEmpty ? genres.keys.toList() : genreIds.toList();
+        });
+      }
+    }
+
+    _updateQuery(newQuery);
+  }
+
   void _onSearchChanged(String value) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () {
@@ -116,6 +147,7 @@ class _BookListScreenState extends State<BookListScreen> with RouteAware {
           TextButton.icon(
             onPressed: () {
               context.read<BookListNotifier>().clearSelection();
+              setState(() => _availableGenreIds = genres.keys.toList());
               _updateQuery(const BookQuery());
             },
             icon: const Icon(Icons.clear_all),
@@ -143,9 +175,16 @@ class _BookListScreenState extends State<BookListScreen> with RouteAware {
                 if (notifier.hasSelection)
                   FilledButton.icon(
                     onPressed: () async {
-                      await context.read<BookListNotifier>().deleteSelected();
-                      if (!mounted) return;
-                      _updateQuery(context.read<BookListNotifier>().query);
+                      try {
+                        await context.read<BookListNotifier>().deleteSelected();
+                        if (!mounted) return;
+                        _updateQuery(context.read<BookListNotifier>().query);
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.delete),
                     label: Text('Удалить (${notifier.selected.length})'),
@@ -170,7 +209,9 @@ class _BookListScreenState extends State<BookListScreen> with RouteAware {
                     decoration: const InputDecoration(labelText: 'Жанр', border: OutlineInputBorder(), isDense: true),
                     items: [
                       const DropdownMenuItem(value: null, child: Text('Все', overflow: TextOverflow.ellipsis)),
-                      ...genres.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, overflow: TextOverflow.ellipsis))),
+                      ...genres.entries
+                          .where((e) => _availableGenreIds.contains(e.key))
+                          .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, overflow: TextOverflow.ellipsis))),
                     ],
                     onChanged: (val) => _updateQuery(notifier.query.copyWith(genreId: val, page: 1)),
                   ),
@@ -185,7 +226,7 @@ class _BookListScreenState extends State<BookListScreen> with RouteAware {
                       const DropdownMenuItem(value: null, child: Text('Все', overflow: TextOverflow.ellipsis)),
                       ..._publishers.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name, overflow: TextOverflow.ellipsis))),
                     ],
-                    onChanged: (val) => _updateQuery(notifier.query.copyWith(publisherId: val, page: 1)),
+                    onChanged: (val) => _onPublisherFilterChanged(val),
                   ),
                 ),
                 SizedBox(
@@ -285,9 +326,16 @@ class _BookListScreenState extends State<BookListScreen> with RouteAware {
                               icon: const Icon(Icons.restore, color: Colors.green),
                               tooltip: 'Восстановить',
                               onPressed: () async {
-                                await context.read<BookListNotifier>().restoreOne(b.id);
-                                if (!mounted) return;
-                                _updateQuery(context.read<BookListNotifier>().query);
+                                try {
+                                  await context.read<BookListNotifier>().restoreOne(b.id);
+                                  if (!mounted) return;
+                                  _updateQuery(context.read<BookListNotifier>().query);
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                  );
+                                }
                               },
                             )
                           else
@@ -295,13 +343,20 @@ class _BookListScreenState extends State<BookListScreen> with RouteAware {
                               icon: const Icon(Icons.more_vert),
                               tooltip: 'Действия',
                               onSelected: (value) async {
-                                if (value == 'soft') {
-                                  await context.read<BookListNotifier>().deleteOne(b.id);
-                                } else if (value == 'hard') {
-                                  await context.read<BookListNotifier>().hardDeleteOne(b.id);
+                                try {
+                                  if (value == 'soft') {
+                                    await context.read<BookListNotifier>().deleteOne(b.id);
+                                  } else if (value == 'hard') {
+                                    await context.read<BookListNotifier>().hardDeleteOne(b.id);
+                                  }
+                                  if (!mounted) return;
+                                  _updateQuery(context.read<BookListNotifier>().query);
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                  );
                                 }
-                                if (!mounted) return;
-                                _updateQuery(context.read<BookListNotifier>().query);
                               },
                               itemBuilder: (context) => [
                                 const PopupMenuItem(

@@ -164,8 +164,19 @@ class _PublisherListScreenState extends State<PublisherListScreen> with RouteAwa
             child: switch (notifier.status) {
               PublisherLoadStatus.idle || PublisherLoadStatus.loading =>
                 const Center(child: CircularProgressIndicator()),
-              PublisherLoadStatus.error =>
-                const Center(child: Text('Ошибка загрузки')),
+              PublisherLoadStatus.error => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(notifier.error ?? 'Ошибка загрузки', textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
+                    FilledButton(
+                      onPressed: () => context.read<PublisherListNotifier>().load(),
+                      child: const Text('Повторить'),
+                    ),
+                  ],
+                ),
+              ),
               PublisherLoadStatus.success when notifier.result.items.isEmpty =>
                 const Center(child: Text('Издательств не найдено')),
               PublisherLoadStatus.success =>
@@ -207,9 +218,16 @@ class _PublisherListScreenState extends State<PublisherListScreen> with RouteAwa
                             IconButton(
                               icon: const Icon(Icons.restore, color: Colors.green),
                               onPressed: () async {
-                                await context.read<PublisherListNotifier>().restoreOne(p.id);
-                                if (!mounted) return;
-                                _updateQuery(context.read<PublisherListNotifier>().query);
+                                try {
+                                  await context.read<PublisherListNotifier>().restoreOne(p.id);
+                                  if (!mounted) return;
+                                  _updateQuery(context.read<PublisherListNotifier>().query);
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                  );
+                                }
                               },
                             )
                           else

@@ -85,12 +85,21 @@ class Reader {
     'deletedAt': deletedAt?.toIso8601String(),
   };
 
-  factory Reader.fromJson(Map<String, dynamic> json) => Reader(
-    id: json['id'] as int? ?? 0,
-    fullName: json['fullName'] as String? ?? '',
-    email: json['email'] as String? ?? '',
-    phone: json['phone'] as String? ?? '',
-    card: json['card'] != null ? LibraryCard.fromJson(json['card'] as Map<String, dynamic>) : null,
-    deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-  );
+  factory Reader.fromJson(Map<String, dynamic> json) {
+    final cardJson = json['card'];
+    LibraryCard? card;
+    
+    if (cardJson is Map<String, dynamic>) {
+      card = LibraryCard.fromJson(cardJson);
+    }
+
+    return Reader(
+      id: json['id'] as int? ?? 0,
+      fullName: json['fullName'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      card: card,
+      deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
+    );
+  }
 }

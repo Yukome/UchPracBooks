@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/services.dart';
 import '../models/book.dart';
-import '../models/book_query.dart';
-import '../models/publisher.dart';
-import '../models/publisher_query.dart';
-import '../models/filter_data.dart';
 import '../core/validators.dart';
 import '../repositories/book_repository.dart';
-import '../repositories/publisher_repository.dart';
+import '../state/reference_data_notifier.dart';
 import '../widgets/entity_form.dart';
 
 class BookFormScreen extends StatefulWidget {
@@ -28,9 +23,6 @@ class _BookFormScreenState extends State<BookFormScreen> {
   int? _publisherId;
   List<int> _genreIds = [];
   List<int> _authorIds = [];
-  List<Publisher> _publishers = [];
-  List<int> _availableGenreIds = [];
-  List<int> _availableAuthorIds = [];
   
   bool get isEditing => widget.id != null;
   bool _isLoading = true;
@@ -41,11 +33,18 @@ class _BookFormScreenState extends State<BookFormScreen> {
     _initData();
   }
 
-    Future<void> _initData() async {
-    final pubRepo = context.read<PublisherRepository>();
-    final pubsResult = await pubRepo.find(const PublisherQuery(size: 1000));
+  Future<void> _initData() async {
+    await context.read<ReferenceDataNotifier>().ensureLoaded();
+
+    if (!mounted) return;
+    final refData = context.read<ReferenceDataNotifier>();
     
-    if (mounted) setState(() => _publishers = pubsResult.items);
+    if (refData.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка загрузки справочников: ${refData.error}'), backgroundColor: Colors.red),
+      );
+      return;
+    }
 
     if (isEditing) {
       final repo = context.read<BookRepository>();
@@ -59,52 +58,14 @@ class _BookFormScreenState extends State<BookFormScreen> {
         _publisherId = book.publisherId;
         _genreIds = book.genreIds;
         _authorIds = book.authorIds;
-        _availableGenreIds = genres.keys.toList();
-        _availableAuthorIds = authorsMap.keys.toList();
       }
-    } else {
-      _availableGenreIds = genres.keys.toList();
-      _availableAuthorIds = authorsMap.keys.toList();
     }
     if (mounted) setState(() => _isLoading = false);
-  }
-
-  Future<void> _updateAvailableRelations(int? publisherId) async {
-    if (publisherId == null) {
-      setState(() {
-        _availableGenreIds = genres.keys.toList();
-        _availableAuthorIds = authorsMap.keys.toList();
-      });
-      return;
-    }
-
-    final repo = context.read<BookRepository>();
-    final result = await repo.find(BookQuery(publisherId: publisherId, size: 10000));
-    final genreIds = <int>{};
-    final authorIds = <int>{};
-    
-    for (final book in result.items) {
-      genreIds.addAll(book.genreIds);
-      authorIds.addAll(book.authorIds);
-    }
-
-    if (mounted) {
-      setState(() {
-        _availableGenreIds = genreIds.toList();
-        _availableAuthorIds = authorIds.toList();
-        _genreIds.removeWhere((id) => !_availableGenreIds.contains(id));
-        _authorIds.removeWhere((id) => !_availableAuthorIds.contains(id));
-      });
-    }
   }
 
   Future<void> _submit() async {
     final repo = context.read<BookRepository>();
     final isbn = _isbnController.text.trim();
-    final allBooks = await repo.find(const BookQuery(size: 10000)); 
-    final isDuplicate = allBooks.items.any((b) => b.isbn == isbn && b.id != widget.id);
-
-    if (isDuplicate) throw Exception('Книга с таким ISBN уже существует!');
 
     final book = Book(
       id: widget.id ?? 0,
@@ -128,6 +89,7 @@ class _BookFormScreenState extends State<BookFormScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    final refData = context.watch<ReferenceDataNotifier>();
 
     return EntityForm(
       title: isEditing ? 'Редактирование книги' : 'Новая книга',
@@ -135,17 +97,18 @@ class _BookFormScreenState extends State<BookFormScreen> {
       backPath: '/books',
       onSubmit: _submit,
       fields: [
-        FormFieldSpec(label: 'Название', controller: _titleController, validator: (v) => Validators.length(v, 2, 200)),
+        FormFieldSpec(label: 'Название', controller: _titleController, validator: (v) => Validators.length(v, 2, 200), fieldKey: 'title'),
         FormFieldSpec(
           label: 'ISBN', 
           controller: _isbnController, 
           keyboardType: TextInputType.number,
           hint: '978-5-17-118366-4',
           validator: (v) => Validators.isbn(v),
+          fieldKey: 'isbn',
         ),
-        FormFieldSpec(label: 'Год', controller: _yearController, keyboardType: TextInputType.number, validator: (v) => Validators.number(v, min: 1450, max: 2026)),
-        FormFieldSpec(label: 'Страниц', controller: _pagesController, keyboardType: TextInputType.number, validator: (v) => Validators.number(v, min: 1)),
-        FormFieldSpec(label: 'Экземпляров', controller: _copiesController, keyboardType: TextInputType.number, validator: (v) => Validators.number(v, min: 0)),
+        FormFieldSpec(label: 'Год', controller: _yearController, keyboardType: TextInputType.number, validator: (v) => Validators.number(v, min: 1450, max: 2026), fieldKey: 'year'),
+        FormFieldSpec(label: 'Страниц', controller: _pagesController, keyboardType: TextInputType.number, validator: (v) => Validators.number(v, min: 1), fieldKey: 'pages'),
+        FormFieldSpec(label: 'Экземпляров', controller: _copiesController, keyboardType: TextInputType.number, validator: (v) => Validators.number(v, min: 0), fieldKey: 'copiesTotal'),
       ],
       customContent: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,11 +116,8 @@ class _BookFormScreenState extends State<BookFormScreen> {
           DropdownButtonFormField<int>(
             value: _publisherId,
             decoration: const InputDecoration(labelText: 'Издательство', border: OutlineInputBorder()),
-            items: _publishers.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))).toList(),
-            onChanged: (val) {
-              setState(() => _publisherId = val);
-              _updateAvailableRelations(val);
-            },
+            items: refData.publishers.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))).toList(),
+            onChanged: (val) => setState(() => _publisherId = val),
             validator: (val) => val == null ? 'Выберите издательство' : null,
           ),
           const SizedBox(height: 24),
@@ -171,16 +131,14 @@ class _BookFormScreenState extends State<BookFormScreen> {
                 decoration: InputDecoration(border: const OutlineInputBorder(), errorText: field.errorText),
                 child: Wrap(
                   spacing: 8, runSpacing: 8,
-                  children: authorsMap.entries
-                      .where((e) => _availableAuthorIds.contains(e.key))
-                      .map((e) {
-                    final selected = field.value!.contains(e.key);
+                  children: refData.authors.map((a) {
+                    final selected = field.value!.contains(a.id);
                     return FilterChip(
-                      label: Text(e.value),
+                      label: Text(a.fullName),
                       selected: selected,
                       onSelected: (_) {
                         final next = [...field.value!];
-                        selected ? next.remove(e.key) : next.add(e.key);
+                        selected ? next.remove(a.id) : next.add(a.id);
                         field.didChange(next);
                         setState(() => _authorIds = next);
                       },
@@ -201,16 +159,14 @@ class _BookFormScreenState extends State<BookFormScreen> {
                 decoration: InputDecoration(border: const OutlineInputBorder(), errorText: field.errorText),
                 child: Wrap(
                   spacing: 8, runSpacing: 8,
-                  children: genres.entries
-                      .where((e) => _availableGenreIds.contains(e.key))
-                      .map((e) {
-                    final selected = field.value!.contains(e.key);
+                  children: refData.genres.map((g) {
+                    final selected = field.value!.contains(g.id);
                     return FilterChip(
-                      label: Text(e.value),
+                      label: Text(g.name),
                       selected: selected,
                       onSelected: (_) {
                         final next = [...field.value!];
-                        selected ? next.remove(e.key) : next.add(e.key);
+                        selected ? next.remove(g.id) : next.add(g.id);
                         field.didChange(next);
                         setState(() => _genreIds = next);
                       },

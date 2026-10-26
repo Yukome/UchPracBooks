@@ -88,12 +88,14 @@ class _ReaderFormScreenState extends State<ReaderFormScreen> {
           label: 'ФИО',
           controller: _nameController,
           validator: (val) => Validators.length(val, 2, 100),
+          fieldKey: 'fullName',
         ),
         FormFieldSpec(
           label: 'Email',
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
           validator: (val) => Validators.email(val),
+          fieldKey: 'email',
         ),
         FormFieldSpec(
           label: 'Телефон',
@@ -102,6 +104,7 @@ class _ReaderFormScreenState extends State<ReaderFormScreen> {
           hint: '+7 900 000-00-00',
           validator: (val) => Validators.phone(val),
           inputFormatters: [PhoneInputFormatter()],
+          fieldKey: 'phone',
         ),
       ],
       customContent: Column(
