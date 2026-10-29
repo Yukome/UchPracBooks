@@ -92,6 +92,8 @@ class _EntityFormState extends State<EntityForm> {
         setState(() => _serverErrors = e.errors);
         _formKey.currentState!.validate();
       }
+    } on ForbiddenException catch (e) {
+      _showSnackBar(e.message, Colors.orange);
     } on ConflictException catch (e) {
       _showSnackBar(e.message, Colors.orange);
     } on ApiException catch (e) {

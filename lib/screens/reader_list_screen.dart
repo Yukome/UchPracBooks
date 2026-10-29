@@ -7,6 +7,8 @@ import '../widgets/entity_table.dart';
 import '../widgets/pagination_bar.dart';
 import '../models/reader.dart';
 import '../models/reader_query.dart';
+import '../state/auth_notifier.dart';
+import '../models/app_user.dart';
 import '../main.dart';
 
 class ReaderListScreen extends StatefulWidget {
@@ -87,15 +89,24 @@ class _ReaderListScreenState extends State<ReaderListScreen> with RouteAware {
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<ReaderListNotifier>();
+    final auth = context.watch<AuthNotifier>();
+    final isLibrarian = auth.has(Role.librarian);
+    final isAdmin = auth.has(Role.admin);
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'На главную',
+          onPressed: () => context.go('/'),
+        ),
         title: const Text('Читатели'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => context.go('/readers/new'),
-          ),
+          if (isLibrarian)
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () => context.go('/readers/new'),
+            ),
           TextButton.icon(
             onPressed: () {
               context.read<ReaderListNotifier>().clearSelection();
@@ -123,13 +134,13 @@ class _ReaderListScreenState extends State<ReaderListScreen> with RouteAware {
                   ),
                 ),
                 const SizedBox(width: 16),
-                if (notifier.hasSelection)
+                if (notifier.hasSelection && isLibrarian)
                   FilledButton.icon(
                     onPressed: () async {
                       try {
                         await context.read<ReaderListNotifier>().deleteSelected();
                         if (!mounted) return;
-                        _updateQuery(context.read<ReaderListNotifier>().query);
+                        context.read<ReaderListNotifier>().load();
                       } catch (e) {
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -144,22 +155,20 @@ class _ReaderListScreenState extends State<ReaderListScreen> with RouteAware {
               ],
             ),
           ),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              children: [
-                Checkbox(
-                  value: notifier.query.includeDeleted,
-                  onChanged: (val) => _updateQuery(notifier.query.copyWith(includeDeleted: val, page: 1)),
-                ),
-                const Text('Показать удалённые'),
-              ],
+          if (isAdmin)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: notifier.query.includeDeleted,
+                    onChanged: (val) => _updateQuery(notifier.query.copyWith(includeDeleted: val, page: 1)),
+                  ),
+                  const Text('Показать удалённые'),
+                ],
+              ),
             ),
-          ),
-
           const SizedBox(height: 8),
-
           Expanded(
             child: switch (notifier.status) {
               ReaderLoadStatus.idle || ReaderLoadStatus.loading =>
@@ -186,8 +195,8 @@ class _ReaderListScreenState extends State<ReaderListScreen> with RouteAware {
                       child: EntityTable<Reader>(
                         items: notifier.result.items,
                         idOf: (r) => r.id,
-                        selected: notifier.selected,
-                        onToggleSelect: (id) => context.read<ReaderListNotifier>().toggleSelection(id),
+                        selected: isLibrarian ? notifier.selected : const {},
+                        onToggleSelect: isLibrarian ? (id) => context.read<ReaderListNotifier>().toggleSelection(id) : null,
                         sortField: notifier.query.sortField,
                         sortAscending: notifier.query.sortAscending,
                         onSort: (field) => _updateQuery(
@@ -209,59 +218,58 @@ class _ReaderListScreenState extends State<ReaderListScreen> with RouteAware {
                           TableColumnSpec(label: 'Email', build: (r) => Text(r.email)),
                           TableColumnSpec(label: 'Билет', build: (r) => Text(r.card?.number ?? 'Нет')),
                         ],
-                        actions: (r) => [
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: r.isDeleted ? null : () => context.go('/readers/${r.id}/edit'),
-                          ),
-                          if (r.isDeleted)
+                        actions: (r) {
+                          if (!isLibrarian) return [];
+                          return [
                             IconButton(
-                              icon: const Icon(Icons.restore, color: Colors.green),
-                              onPressed: () async {
-                                try {
-                                  await context.read<ReaderListNotifier>().restoreOne(r.id);
-                                  if (!mounted) return;
-                                  _updateQuery(context.read<ReaderListNotifier>().query);
-                                } catch (e) {
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-                                  );
-                                }
-                              },
-                            )
-                          else
-                            PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert),
-                              tooltip: 'Действия',
-                              onSelected: (value) async {
-                                try {
-                                  if (value == 'soft') {
-                                    await context.read<ReaderListNotifier>().deleteOne(r.id);
-                                  } else if (value == 'hard') {
-                                    await context.read<ReaderListNotifier>().hardDeleteOne(r.id);
-                                  }
-                                  if (!mounted) return;
-                                  _updateQuery(context.read<ReaderListNotifier>().query);
-                                } catch (e) {
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-                                  );
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'soft',
-                                  child: Text('В корзину (логически)'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'hard',
-                                  child: Text('Удалить навсегда', style: TextStyle(color: Colors.red)),
-                                ),
-                              ],
+                              icon: const Icon(Icons.edit),
+                              onPressed: r.isDeleted ? null : () => context.go('/readers/${r.id}/edit'),
                             ),
-                        ],
+                            if (r.isDeleted) 
+                              if (isAdmin) 
+                                IconButton(
+                                  icon: const Icon(Icons.restore, color: Colors.green),
+                                  onPressed: () async {
+                                    try {
+                                      await context.read<ReaderListNotifier>().restoreOne(r.id);
+                                      if (!mounted) return;
+                                      context.read<ReaderListNotifier>().load();
+                                    } catch (e) {
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                      );
+                                    }
+                                  },
+                                ),
+                            if (!r.isDeleted) 
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert),
+                                tooltip: 'Действия',
+                                onSelected: (value) async {
+                                  try {
+                                    if (value == 'soft') {
+                                      await context.read<ReaderListNotifier>().deleteOne(r.id);
+                                    } else if (value == 'hard' && isAdmin) {
+                                      await context.read<ReaderListNotifier>().hardDeleteOne(r.id);
+                                    }
+                                    if (!mounted) return;
+                                    context.read<ReaderListNotifier>().load();
+                                  } catch (e) {
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                    );
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(value: 'soft', child: Text('В корзину (логически)')),
+                                  if (isAdmin)
+                                    const PopupMenuItem(value: 'hard', child: Text('Удалить навсегда', style: TextStyle(color: Colors.red))),
+                                ],
+                              ),
+                          ];
+                        },
                       ),
                     ),
                     PaginationBar(

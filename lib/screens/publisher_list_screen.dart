@@ -7,6 +7,8 @@ import '../widgets/entity_table.dart';
 import '../widgets/pagination_bar.dart';
 import '../models/publisher.dart';
 import '../models/publisher_query.dart';
+import '../state/auth_notifier.dart';
+import '../models/app_user.dart';
 import '../main.dart';
 
 class PublisherListScreen extends StatefulWidget {
@@ -87,15 +89,24 @@ class _PublisherListScreenState extends State<PublisherListScreen> with RouteAwa
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<PublisherListNotifier>();
+    final auth = context.watch<AuthNotifier>();
+    final isLibrarian = auth.has(Role.librarian);
+    final isAdmin = auth.has(Role.admin);
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'На главную',
+          onPressed: () => context.go('/'),
+        ),
         title: const Text('Издательства'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => context.go('/publishers/new'),
-          ),
+          if (isLibrarian)
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () => context.go('/publishers/new'),
+            ),
           TextButton.icon(
             onPressed: () {
               context.read<PublisherListNotifier>().clearSelection();
@@ -123,13 +134,13 @@ class _PublisherListScreenState extends State<PublisherListScreen> with RouteAwa
                   ),
                 ),
                 const SizedBox(width: 16),
-                if (notifier.hasSelection)
+                if (notifier.hasSelection && isLibrarian)
                   FilledButton.icon(
                     onPressed: () async {
                       try {
                         await context.read<PublisherListNotifier>().deleteSelected();
                         if (!mounted) return;
-                        _updateQuery(context.read<PublisherListNotifier>().query);
+                        context.read<PublisherListNotifier>().load();
                       } catch (e) {
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -144,22 +155,20 @@ class _PublisherListScreenState extends State<PublisherListScreen> with RouteAwa
               ],
             ),
           ),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              children: [
-                Checkbox(
-                  value: notifier.query.includeDeleted,
-                  onChanged: (val) => _updateQuery(notifier.query.copyWith(includeDeleted: val, page: 1)),
-                ),
-                const Text('Показать удалённые'),
-              ],
+          if (isAdmin)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: notifier.query.includeDeleted,
+                    onChanged: (val) => _updateQuery(notifier.query.copyWith(includeDeleted: val, page: 1)),
+                  ),
+                  const Text('Показать удалённые'),
+                ],
+              ),
             ),
-          ),
-
           const SizedBox(height: 8),
-
           Expanded(
             child: switch (notifier.status) {
               PublisherLoadStatus.idle || PublisherLoadStatus.loading =>
@@ -186,8 +195,8 @@ class _PublisherListScreenState extends State<PublisherListScreen> with RouteAwa
                       child: EntityTable<Publisher>(
                         items: notifier.result.items,
                         idOf: (p) => p.id,
-                        selected: notifier.selected,
-                        onToggleSelect: (id) => context.read<PublisherListNotifier>().toggleSelection(id),
+                        selected: isLibrarian ? notifier.selected : const {},
+                        onToggleSelect: isLibrarian ? (id) => context.read<PublisherListNotifier>().toggleSelection(id) : null,
                         sortField: notifier.query.sortField,
                         sortAscending: notifier.query.sortAscending,
                         onSort: (field) => _updateQuery(
@@ -209,59 +218,58 @@ class _PublisherListScreenState extends State<PublisherListScreen> with RouteAwa
                           TableColumnSpec(label: 'Город', sortField: 'city', build: (p) => Text(p.city)),
                           TableColumnSpec(label: 'Год основания', sortField: 'foundedYear', numeric: true, build: (p) => Text('${p.foundedYear ?? "-"}')),
                         ],
-                        actions: (p) => [
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: p.isDeleted ? null : () => context.go('/publishers/${p.id}/edit'),
-                          ),
-                          if (p.isDeleted)
+                        actions: (p) {
+                          if (!isLibrarian) return [];
+                          return [
                             IconButton(
-                              icon: const Icon(Icons.restore, color: Colors.green),
-                              onPressed: () async {
-                                try {
-                                  await context.read<PublisherListNotifier>().restoreOne(p.id);
-                                  if (!mounted) return;
-                                  _updateQuery(context.read<PublisherListNotifier>().query);
-                                } catch (e) {
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-                                  );
-                                }
-                              },
-                            )
-                          else
-                            PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert),
-                              tooltip: 'Действия',
-                              onSelected: (value) async {
-                                try {
-                                  if (value == 'soft') {
-                                    await context.read<PublisherListNotifier>().deleteOne(p.id);
-                                  } else if (value == 'hard') {
-                                    await context.read<PublisherListNotifier>().hardDeleteOne(p.id);
-                                  }
-                                  if (!mounted) return;
-                                  _updateQuery(context.read<PublisherListNotifier>().query);
-                                } catch (e) {
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-                                  );
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'soft',
-                                  child: Text('В корзину (логически)'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'hard',
-                                  child: Text('Удалить навсегда', style: TextStyle(color: Colors.red)),
-                                ),
-                              ],
+                              icon: const Icon(Icons.edit),
+                              onPressed: p.isDeleted ? null : () => context.go('/publishers/${p.id}/edit'),
                             ),
-                        ],
+                            if (p.isDeleted) 
+                              if (isAdmin) 
+                                IconButton(
+                                  icon: const Icon(Icons.restore, color: Colors.green),
+                                  onPressed: () async {
+                                    try {
+                                      await context.read<PublisherListNotifier>().restoreOne(p.id);
+                                      if (!mounted) return;
+                                      context.read<PublisherListNotifier>().load();
+                                    } catch (e) {
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                      );
+                                    }
+                                  },
+                                ),
+                            if (!p.isDeleted) 
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert),
+                                tooltip: 'Действия',
+                                onSelected: (value) async {
+                                  try {
+                                    if (value == 'soft') {
+                                      await context.read<PublisherListNotifier>().deleteOne(p.id);
+                                    } else if (value == 'hard' && isAdmin) {
+                                      await context.read<PublisherListNotifier>().hardDeleteOne(p.id);
+                                    }
+                                    if (!mounted) return;
+                                    context.read<PublisherListNotifier>().load();
+                                  } catch (e) {
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                    );
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(value: 'soft', child: Text('В корзину (логически)')),
+                                  if (isAdmin)
+                                    const PopupMenuItem(value: 'hard', child: Text('Удалить навсегда', style: TextStyle(color: Colors.red))),
+                                ],
+                              ),
+                          ];
+                        },
                       ),
                     ),
                     PaginationBar(

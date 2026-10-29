@@ -17,6 +17,7 @@ class ApiBookRepository implements BookRepository {
           if (q.publisherId != null) 'publisherId': q.publisherId,
           if (q.yearFrom != null) 'yearFrom': q.yearFrom,
           if (q.yearTo != null) 'yearTo': q.yearTo,
+          if (q.available != null) 'available': q.available,
           'sort': '${q.sortField},${q.sortAscending ? 'asc' : 'desc'}',
           'page': q.page,
           'size': q.size,

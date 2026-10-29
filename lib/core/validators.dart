@@ -49,4 +49,20 @@ class Validators {
     }
     return null;
   }
+
+  static String? password(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Введите пароль';
+    }
+    if (value.length < 8) {
+      return 'Пароль должен содержать минимум 8 символов';
+    }
+    if (!RegExp(r'[0-9]').hasMatch(value)) {
+      return 'Пароль должен содержать хотя бы одну цифру';
+    }
+    if (!RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(value)) {
+      return 'Добавьте хотя бы один спецсимвол (!@#\$%^&* и т.д.)';
+    }
+    return null;
+  }
 }

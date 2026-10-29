@@ -7,6 +7,8 @@ import '../widgets/entity_table.dart';
 import '../widgets/pagination_bar.dart';
 import '../models/genre.dart';
 import '../models/genre_query.dart';
+import '../state/auth_notifier.dart';
+import '../models/app_user.dart';
 import '../main.dart';
 
 class GenreListScreen extends StatefulWidget {
@@ -87,15 +89,24 @@ class _GenreListScreenState extends State<GenreListScreen> with RouteAware {
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<GenreListNotifier>();
+    final auth = context.watch<AuthNotifier>();
+    final isLibrarian = auth.has(Role.librarian);
+    final isAdmin = auth.has(Role.admin);
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'На главную',
+          onPressed: () => context.go('/'),
+        ),
         title: const Text('Жанры'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => context.go('/genres/new'),
-          ),
+          if (isLibrarian)
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () => context.go('/genres/new'),
+            ),
           TextButton.icon(
             onPressed: () {
               context.read<GenreListNotifier>().clearSelection();
@@ -123,13 +134,13 @@ class _GenreListScreenState extends State<GenreListScreen> with RouteAware {
                   ),
                 ),
                 const SizedBox(width: 16),
-                if (notifier.hasSelection)
+                if (notifier.hasSelection && isLibrarian)
                   FilledButton.icon(
                     onPressed: () async {
                       try {
                         await context.read<GenreListNotifier>().deleteSelected();
                         if (!mounted) return;
-                        _updateQuery(context.read<GenreListNotifier>().query);
+                        context.read<GenreListNotifier>().load();
                       } catch (e) {
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -144,22 +155,20 @@ class _GenreListScreenState extends State<GenreListScreen> with RouteAware {
               ],
             ),
           ),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              children: [
-                Checkbox(
-                  value: notifier.query.includeDeleted,
-                  onChanged: (val) => _updateQuery(notifier.query.copyWith(includeDeleted: val, page: 1)),
-                ),
-                const Text('Показать удалённые'),
-              ],
+          if (isAdmin)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: notifier.query.includeDeleted,
+                    onChanged: (val) => _updateQuery(notifier.query.copyWith(includeDeleted: val, page: 1)),
+                  ),
+                  const Text('Показать удалённые'),
+                ],
+              ),
             ),
-          ),
-
           const SizedBox(height: 8),
-
           Expanded(
             child: switch (notifier.status) {
               GenreLoadStatus.idle || GenreLoadStatus.loading =>
@@ -186,8 +195,8 @@ class _GenreListScreenState extends State<GenreListScreen> with RouteAware {
                       child: EntityTable<Genre>(
                         items: notifier.result.items,
                         idOf: (g) => g.id,
-                        selected: notifier.selected,
-                        onToggleSelect: (id) => context.read<GenreListNotifier>().toggleSelection(id),
+                        selected: isLibrarian ? notifier.selected : const {},
+                        onToggleSelect: isLibrarian ? (id) => context.read<GenreListNotifier>().toggleSelection(id) : null,
                         sortField: notifier.query.sortField,
                         sortAscending: notifier.query.sortAscending,
                         onSort: (field) => _updateQuery(
@@ -208,59 +217,58 @@ class _GenreListScreenState extends State<GenreListScreen> with RouteAware {
                           )),
                           TableColumnSpec(label: 'Описание', build: (g) => Text(g.description)),
                         ],
-                        actions: (g) => [
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: g.isDeleted ? null : () => context.go('/genres/${g.id}/edit'),
-                          ),
-                          if (g.isDeleted)
+                        actions: (g) {
+                          if (!isLibrarian) return [];
+                          return [
                             IconButton(
-                              icon: const Icon(Icons.restore, color: Colors.green),
-                              onPressed: () async {
-                                try {
-                                  await context.read<GenreListNotifier>().restoreOne(g.id);
-                                  if (!mounted) return;
-                                  _updateQuery(context.read<GenreListNotifier>().query);
-                                } catch (e) {
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-                                  );
-                                }
-                              },
-                            )
-                          else
-                            PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert),
-                              tooltip: 'Действия',
-                              onSelected: (value) async {
-                                try {
-                                  if (value == 'soft') {
-                                    await context.read<GenreListNotifier>().deleteOne(g.id);
-                                  } else if (value == 'hard') {
-                                    await context.read<GenreListNotifier>().hardDeleteOne(g.id);
-                                  }
-                                  if (!mounted) return;
-                                  _updateQuery(context.read<GenreListNotifier>().query);
-                                } catch (e) {
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-                                  );
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'soft',
-                                  child: Text('В корзину (логически)'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'hard',
-                                  child: Text('Удалить навсегда', style: TextStyle(color: Colors.red)),
-                                ),
-                              ],
+                              icon: const Icon(Icons.edit),
+                              onPressed: g.isDeleted ? null : () => context.go('/genres/${g.id}/edit'),
                             ),
-                        ],
+                            if (g.isDeleted) 
+                              if (isAdmin) 
+                                IconButton(
+                                  icon: const Icon(Icons.restore, color: Colors.green),
+                                  onPressed: () async {
+                                    try {
+                                      await context.read<GenreListNotifier>().restoreOne(g.id);
+                                      if (!mounted) return;
+                                      context.read<GenreListNotifier>().load();
+                                    } catch (e) {
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                      );
+                                    }
+                                  },
+                                ),
+                            if (!g.isDeleted) 
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert),
+                                tooltip: 'Действия',
+                                onSelected: (value) async {
+                                  try {
+                                    if (value == 'soft') {
+                                      await context.read<GenreListNotifier>().deleteOne(g.id);
+                                    } else if (value == 'hard' && isAdmin) {
+                                      await context.read<GenreListNotifier>().hardDeleteOne(g.id);
+                                    }
+                                    if (!mounted) return;
+                                    context.read<GenreListNotifier>().load();
+                                  } catch (e) {
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                    );
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(value: 'soft', child: Text('В корзину (логически)')),
+                                  if (isAdmin)
+                                    const PopupMenuItem(value: 'hard', child: Text('Удалить навсегда', style: TextStyle(color: Colors.red))),
+                                ],
+                              ),
+                          ];
+                        },
                       ),
                     ),
                     PaginationBar(
