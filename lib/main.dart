@@ -26,14 +26,16 @@ import 'repositories/api_genre_repository.dart';
 import 'repositories/api_reader_repository.dart';
 import 'widgets/inactivity_watcher.dart';
 
-final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
-final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+final RouteObserver<ModalRoute<void>> routeObserver =
+    RouteObserver<ModalRoute<void>>();
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();
-  
+
   final prefs = await SharedPreferences.getInstance();
   final dio = buildDio();
   final authApi = AuthApi(dio);
@@ -48,7 +50,7 @@ void main() async {
       return null;
     }
   };
-  
+
   onAuthFailed = () {
     authNotifier.logout();
   };
@@ -62,34 +64,40 @@ void main() async {
         ChangeNotifierProvider<AuthNotifier>.value(value: authNotifier),
         Provider<AuthApi>.value(value: authApi),
         ProxyProvider<Dio, BookRepository>(
-          update: (_, dio, __) => ApiBookRepository(dio),
+          update: (_, dio, _) => ApiBookRepository(dio),
         ),
         ChangeNotifierProvider(
-          create: (context) => BookListNotifier(context.read<BookRepository>())..load(),
+          create: (context) =>
+              BookListNotifier(context.read<BookRepository>())..load(),
         ),
         ProxyProvider<Dio, AuthorRepository>(
-          update: (_, dio, __) => ApiAuthorRepository(dio),
+          update: (_, dio, _) => ApiAuthorRepository(dio),
         ),
         ChangeNotifierProvider(
-          create: (context) => AuthorListNotifier(context.read<AuthorRepository>())..load(),
+          create: (context) =>
+              AuthorListNotifier(context.read<AuthorRepository>())..load(),
         ),
         ProxyProvider<Dio, PublisherRepository>(
-          update: (_, dio, __) => ApiPublisherRepository(dio),
+          update: (_, dio, _) => ApiPublisherRepository(dio),
         ),
         ChangeNotifierProvider(
-          create: (context) => PublisherListNotifier(context.read<PublisherRepository>())..load(),
+          create: (context) =>
+              PublisherListNotifier(context.read<PublisherRepository>())
+                ..load(),
         ),
         ProxyProvider<Dio, GenreRepository>(
-          update: (_, dio, __) => ApiGenreRepository(dio),
+          update: (_, dio, _) => ApiGenreRepository(dio),
         ),
         ChangeNotifierProvider(
-          create: (context) => GenreListNotifier(context.read<GenreRepository>())..load(),
+          create: (context) =>
+              GenreListNotifier(context.read<GenreRepository>())..load(),
         ),
         ProxyProvider<Dio, ReaderRepository>(
-          update: (_, dio, __) => ApiReaderRepository(dio),
+          update: (_, dio, _) => ApiReaderRepository(dio),
         ),
         ChangeNotifierProvider(
-          create: (context) => ReaderListNotifier(context.read<ReaderRepository>())..load(),
+          create: (context) =>
+              ReaderListNotifier(context.read<ReaderRepository>())..load(),
         ),
         ChangeNotifierProvider(
           create: (context) => ReferenceDataNotifier(

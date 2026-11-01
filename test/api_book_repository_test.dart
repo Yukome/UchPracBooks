@@ -1,11 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http_mock_adapter/http_mock_adapter.dart';
-import '../lib/core/api_client.dart';
-import '../lib/core/api_exceptions.dart';
-import '../lib/models/book.dart';
-import '../lib/models/book_query.dart';
-import '../lib/repositories/api_book_repository.dart';
+import 'package:flutter_uchprac2/core/api_client.dart';
+import 'package:flutter_uchprac2/core/api_exceptions.dart';
+import 'package:flutter_uchprac2/models/book.dart';
+import 'package:flutter_uchprac2/models/book_query.dart';
+import 'package:flutter_uchprac2/repositories/api_book_repository.dart';
 
 void main() {
   late Dio dio;
@@ -13,11 +13,13 @@ void main() {
   late ApiBookRepository repository;
 
   setUp(() {
-    dio = Dio(BaseOptions(
-      baseUrl: 'http://localhost:8080/api',
-      validateStatus: (status) => status != null && status < 500,
-    ));
-    addInterceptors(dio); 
+    dio = Dio(
+      BaseOptions(
+        baseUrl: 'http://localhost:8080/api',
+        validateStatus: (status) => status != null && status < 500,
+      ),
+    );
+    addInterceptors(dio);
     dioAdapter = DioAdapter(dio: dio);
     dio.httpClientAdapter = dioAdapter;
     repository = ApiBookRepository(dio);
@@ -37,7 +39,7 @@ void main() {
           'genreIds': [1, 3],
           'copiesTotal': 4,
           'copiesAvailable': 4,
-        }
+        },
       ],
       'page': 1,
       'size': 10,
@@ -47,11 +49,7 @@ void main() {
     dioAdapter.onGet(
       '/books',
       (server) => server.reply(200, responseJson),
-      queryParameters: {
-        'sort': 'title,asc',
-        'page': 1,
-        'size': 10,
-      },
+      queryParameters: {'sort': 'title,asc', 'page': 1, 'size': 10},
     );
 
     final result = await repository.find(const BookQuery());
@@ -64,66 +62,84 @@ void main() {
   test('create() выбрасывает ValidationException при 422', () async {
     final errorJson = {
       'message': 'Ошибка валидации',
-      'errors': {
-        'isbn': 'Книга с таким ISBN уже существует',
-      },
+      'errors': {'isbn': 'Книга с таким ISBN уже существует'},
     };
 
     dioAdapter.onPost(
       '/books',
       (server) => server.reply(422, errorJson),
-      data: Matchers.any, 
-    );
-
-    final book = Book(
-      id: 0, title: 'Тест', isbn: '123', year: 2000, pages: 100,
-      publisherId: 1, authorIds: [], genreIds: [], copiesTotal: 1, copiesAvailable: 1,
-    );
-
-    expect(
-      () => repository.create(book),
-      throwsA(isA<ValidationException>().having(
-        (e) => e.errors['isbn'], 
-        'сообщение об ошибке', 
-        'Книга с таким ISBN уже существует'
-      )),
-    );
-  });
-
-  test('find() выбрасывает NetworkException при отсутствии соединения', () async {
-    dioAdapter.onGet(
-      '/books',
-      (server) => server.throws(
-        0, 
-        DioException(
-          requestOptions: RequestOptions(path: '/books'),
-          type: DioExceptionType.connectionError,
-        ),
-      ),
-    );
-
-    expect(
-      () => repository.find(const BookQuery()),
-      throwsA(isA<NetworkException>()),
-    );
-  });
-
-  test('create() выбрасывает ConflictException при 409', () async {
-    dioAdapter.onPost(
-      '/books',
-      (server) => server.reply(409, {'message': 'Книга выдана и не может быть удалена'}),
       data: Matchers.any,
     );
 
     final book = Book(
-      id: 0, title: 'Тест', isbn: '123', year: 2000, pages: 100,
-      publisherId: 1, authorIds: [], genreIds: [], copiesTotal: 1, copiesAvailable: 1,
+      id: 0,
+      title: 'Тест',
+      isbn: '123',
+      year: 2000,
+      pages: 100,
+      publisherId: 1,
+      authorIds: [],
+      genreIds: [],
+      copiesTotal: 1,
+      copiesAvailable: 1,
     );
 
     expect(
       () => repository.create(book),
-      throwsA(isA<ConflictException>()),
+      throwsA(
+        isA<ValidationException>().having(
+          (e) => e.errors['isbn'],
+          'сообщение об ошибке',
+          'Книга с таким ISBN уже существует',
+        ),
+      ),
     );
+  });
+
+  test(
+    'find() выбрасывает NetworkException при отсутствии соединения',
+    () async {
+      dioAdapter.onGet(
+        '/books',
+        (server) => server.throws(
+          0,
+          DioException(
+            requestOptions: RequestOptions(path: '/books'),
+            type: DioExceptionType.connectionError,
+          ),
+        ),
+      );
+
+      expect(
+        () => repository.find(const BookQuery()),
+        throwsA(isA<NetworkException>()),
+      );
+    },
+  );
+
+  test('create() выбрасывает ConflictException при 409', () async {
+    dioAdapter.onPost(
+      '/books',
+      (server) => server.reply(409, {
+        'message': 'Книга выдана и не может быть удалена',
+      }),
+      data: Matchers.any,
+    );
+
+    final book = Book(
+      id: 0,
+      title: 'Тест',
+      isbn: '123',
+      year: 2000,
+      pages: 100,
+      publisherId: 1,
+      authorIds: [],
+      genreIds: [],
+      copiesTotal: 1,
+      copiesAvailable: 1,
+    );
+
+    expect(() => repository.create(book), throwsA(isA<ConflictException>()));
   });
 
   test('findById() выбрасывает NotFoundException при 404', () async {
@@ -132,10 +148,7 @@ void main() {
       (server) => server.reply(404, {'message': 'Объект не найден'}),
     );
 
-    expect(
-      () => repository.findById(99),
-      throwsA(isA<NotFoundException>()),
-    );
+    expect(() => repository.findById(99), throwsA(isA<NotFoundException>()));
   });
 
   test('find() выбрасывает ServerException при 500', () async {

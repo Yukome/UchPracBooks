@@ -84,7 +84,9 @@ class AuthNotifier extends ChangeNotifier {
   Future<void> logout() async {
     _sessionTimer?.cancel();
     if (_refreshToken != null) {
-      try { await _api.logout(_refreshToken!); } catch (_) {}
+      try {
+        await _api.logout(_refreshToken!);
+      } catch (_) {}
     }
     _user = null;
     _accessToken = null;
@@ -98,7 +100,7 @@ class AuthNotifier extends ChangeNotifier {
 
   Future<void> refreshTokens() async {
     if (_refreshToken == null) throw Exception('Нет refresh токена');
-    
+
     final res = await _api.refresh(_refreshToken!);
     _accessToken = res.accessToken;
     _refreshToken = res.refreshToken;
@@ -110,7 +112,8 @@ class AuthNotifier extends ChangeNotifier {
 
   Future<void> _saveTokens() async {
     if (_accessToken != null) await _prefs.setString(_kAccess, _accessToken!);
-    if (_refreshToken != null) await _prefs.setString(_kRefresh, _refreshToken!);
+    if (_refreshToken != null)
+      {await _prefs.setString(_kRefresh, _refreshToken!);}
   }
 
   void _startSessionTimer() {
@@ -129,7 +132,6 @@ class AuthNotifier extends ChangeNotifier {
 
     _sessionTimer = Timer(remaining, () async {
       if (isAuthenticated) {
-        print('=== SESSION TIMEOUT: Общая длительность сессии истекла ===');
         await logout();
       }
     });

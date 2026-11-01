@@ -38,6 +38,8 @@ class Genre {
     id: json['id'] as int? ?? 0,
     name: json['name'] as String? ?? '',
     description: json['description'] as String? ?? '',
-    deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
+    deletedAt: json['deletedAt'] == null
+        ? null
+        : DateTime.parse(json['deletedAt'] as String),
   );
 }

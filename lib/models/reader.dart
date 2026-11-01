@@ -34,8 +34,10 @@ class LibraryCard {
   factory LibraryCard.fromJson(Map<String, dynamic> json) => LibraryCard(
     id: json['id'] as int? ?? 0,
     number: json['number'] as String? ?? '',
-    issuedAt: DateTime.tryParse(json['issuedAt'] as String? ?? '') ?? DateTime.now(),
-    expiresAt: DateTime.tryParse(json['expiresAt'] as String? ?? '') ?? DateTime.now(),
+    issuedAt:
+        DateTime.tryParse(json['issuedAt'] as String? ?? '') ?? DateTime.now(),
+    expiresAt:
+        DateTime.tryParse(json['expiresAt'] as String? ?? '') ?? DateTime.now(),
   );
 }
 
@@ -88,7 +90,7 @@ class Reader {
   factory Reader.fromJson(Map<String, dynamic> json) {
     final cardJson = json['card'];
     LibraryCard? card;
-    
+
     if (cardJson is Map<String, dynamic>) {
       card = LibraryCard.fromJson(cardJson);
     }
@@ -99,7 +101,9 @@ class Reader {
       email: json['email'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
       card: card,
-      deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
+      deletedAt: json['deletedAt'] == null
+          ? null
+          : DateTime.parse(json['deletedAt'] as String),
     );
   }
 }

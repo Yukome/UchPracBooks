@@ -1,5 +1,8 @@
 class Validators {
-  static String? required(String? value, [String message = 'Обязательное поле']) {
+  static String? required(
+    String? value, [
+    String message = 'Обязательное поле',
+  ]) {
     if (value == null || value.trim().isEmpty) return message;
     return null;
   }

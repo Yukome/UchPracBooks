@@ -22,8 +22,11 @@ class _AuthorFormScreenState extends State<AuthorFormScreen> {
   @override
   void initState() {
     super.initState();
-    if (isEditing) _loadAuthor();
-    else _isLoading = false;
+    if (isEditing) {
+      _loadAuthor();
+    } else {
+      _isLoading = false;
+    }
   }
 
   Future<void> _loadAuthor() async {
@@ -45,13 +48,17 @@ class _AuthorFormScreenState extends State<AuthorFormScreen> {
       country: _countryController.text.trim(),
     );
     final repo = context.read<AuthorRepository>();
-    if (isEditing) await repo.update(author);
-    else await repo.create(author);
+    if (isEditing) {
+      await repo.update(author);
+    } else {
+      await repo.create(author);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_isLoading)
+      {return const Scaffold(body: Center(child: CircularProgressIndicator()));}
 
     return EntityForm(
       title: isEditing ? 'Редактирование автора' : 'Новый автор',

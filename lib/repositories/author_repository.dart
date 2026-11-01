@@ -4,7 +4,10 @@ import '../models/author_query.dart';
 import '../models/page_result.dart';
 
 abstract interface class AuthorRepository {
-  Future<PageResult<Author>> find(AuthorQuery query, {CancelToken? cancelToken});
+  Future<PageResult<Author>> find(
+    AuthorQuery query, {
+    CancelToken? cancelToken,
+  });
   Future<Author?> findById(int id);
   Future<Author> create(Author author);
   Future<Author> update(Author author);

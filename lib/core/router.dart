@@ -36,7 +36,7 @@ GoRouter buildRouter(AuthNotifier auth) {
       if (!loggedIn && !isPublic) {
         return '/login?from=${Uri.encodeComponent(state.uri.toString())}';
       }
-      
+
       return null;
     },
     routes: [
@@ -44,43 +44,48 @@ GoRouter buildRouter(AuthNotifier auth) {
       GoRoute(path: '/register', builder: (c, s) => const RegisterScreen()),
       GoRoute(path: '/', builder: (c, s) => const DashboardScreen()),
       GoRoute(path: '/forbidden', builder: (c, s) => const ForbiddenScreen()),
-      GoRoute(
-        path: '/my-loans',
-        builder: (c, s) => const MyLoansScreen(),
-      ),
+      GoRoute(path: '/my-loans', builder: (c, s) => const MyLoansScreen()),
       GoRoute(
         path: '/issue-loan',
         builder: (c, s) => const IssueLoanScreen(),
-        redirect: (context, state) => auth.has(Role.librarian) ? null : '/forbidden',
+        redirect: (context, state) =>
+            auth.has(Role.librarian) ? null : '/forbidden',
       ),
       GoRoute(
         path: '/loans-management',
         builder: (c, s) => const LoansManagementScreen(),
-        redirect: (context, state) => auth.has(Role.librarian) ? null : '/forbidden',
+        redirect: (context, state) =>
+            auth.has(Role.librarian) ? null : '/forbidden',
       ),
       GoRoute(
         path: '/admin/users',
         builder: (c, s) => const AdminUsersScreen(),
-        redirect: (context, state) => auth.has(Role.admin) ? null : '/forbidden',
+        redirect: (context, state) =>
+            auth.has(Role.admin) ? null : '/forbidden',
       ),
       GoRoute(
         path: '/admin/stats',
         builder: (c, s) => const AdminStatsScreen(),
-        redirect: (context, state) => auth.has(Role.admin) ? null : '/forbidden',
+        redirect: (context, state) =>
+            auth.has(Role.admin) ? null : '/forbidden',
       ),
       GoRoute(
         path: '/books',
         builder: (context, state) => const BookListScreen(),
         routes: [
           GoRoute(
-            path: 'new', 
+            path: 'new',
             builder: (context, state) => const BookFormScreen(),
-            redirect: (context, state) => auth.has(Role.librarian) ? null : '/forbidden',
+            redirect: (context, state) =>
+                auth.has(Role.librarian) ? null : '/forbidden',
           ),
           GoRoute(
             path: ':id/edit',
-            builder: (context, state) => BookFormScreen(id: int.tryParse(state.pathParameters['id'] ?? '')),
-            redirect: (context, state) => auth.has(Role.librarian) ? null : '/forbidden',
+            builder: (context, state) => BookFormScreen(
+              id: int.tryParse(state.pathParameters['id'] ?? ''),
+            ),
+            redirect: (context, state) =>
+                auth.has(Role.librarian) ? null : '/forbidden',
           ),
         ],
       ),
@@ -88,12 +93,18 @@ GoRouter buildRouter(AuthNotifier auth) {
       GoRoute(
         path: '/authors',
         builder: (context, state) => const AuthorListScreen(),
-        redirect: (context, state) => auth.has(Role.librarian) ? null : '/forbidden',
+        redirect: (context, state) =>
+            auth.has(Role.librarian) ? null : '/forbidden',
         routes: [
-          GoRoute(path: 'new', builder: (context, state) => const AuthorFormScreen()),
+          GoRoute(
+            path: 'new',
+            builder: (context, state) => const AuthorFormScreen(),
+          ),
           GoRoute(
             path: ':id/edit',
-            builder: (context, state) => AuthorFormScreen(id: int.tryParse(state.pathParameters['id'] ?? '')),
+            builder: (context, state) => AuthorFormScreen(
+              id: int.tryParse(state.pathParameters['id'] ?? ''),
+            ),
           ),
         ],
       ),
@@ -101,12 +112,18 @@ GoRouter buildRouter(AuthNotifier auth) {
       GoRoute(
         path: '/publishers',
         builder: (context, state) => const PublisherListScreen(),
-        redirect: (context, state) => auth.has(Role.librarian) ? null : '/forbidden',
+        redirect: (context, state) =>
+            auth.has(Role.librarian) ? null : '/forbidden',
         routes: [
-          GoRoute(path: 'new', builder: (context, state) => const PublisherFormScreen()),
+          GoRoute(
+            path: 'new',
+            builder: (context, state) => const PublisherFormScreen(),
+          ),
           GoRoute(
             path: ':id/edit',
-            builder: (context, state) => PublisherFormScreen(id: int.tryParse(state.pathParameters['id'] ?? '')),
+            builder: (context, state) => PublisherFormScreen(
+              id: int.tryParse(state.pathParameters['id'] ?? ''),
+            ),
           ),
         ],
       ),
@@ -114,12 +131,18 @@ GoRouter buildRouter(AuthNotifier auth) {
       GoRoute(
         path: '/genres',
         builder: (context, state) => const GenreListScreen(),
-        redirect: (context, state) => auth.has(Role.librarian) ? null : '/forbidden',
+        redirect: (context, state) =>
+            auth.has(Role.librarian) ? null : '/forbidden',
         routes: [
-          GoRoute(path: 'new', builder: (context, state) => const GenreFormScreen()),
+          GoRoute(
+            path: 'new',
+            builder: (context, state) => const GenreFormScreen(),
+          ),
           GoRoute(
             path: ':id/edit',
-            builder: (context, state) => GenreFormScreen(id: int.tryParse(state.pathParameters['id'] ?? '')),
+            builder: (context, state) => GenreFormScreen(
+              id: int.tryParse(state.pathParameters['id'] ?? ''),
+            ),
           ),
         ],
       ),
@@ -127,12 +150,18 @@ GoRouter buildRouter(AuthNotifier auth) {
       GoRoute(
         path: '/readers',
         builder: (context, state) => const ReaderListScreen(),
-        redirect: (context, state) => auth.has(Role.librarian) ? null : '/forbidden',
+        redirect: (context, state) =>
+            auth.has(Role.librarian) ? null : '/forbidden',
         routes: [
-          GoRoute(path: 'new', builder: (context, state) => const ReaderFormScreen()),
+          GoRoute(
+            path: 'new',
+            builder: (context, state) => const ReaderFormScreen(),
+          ),
           GoRoute(
             path: ':id/edit',
-            builder: (context, state) => ReaderFormScreen(id: int.tryParse(state.pathParameters['id'] ?? '')),
+            builder: (context, state) => ReaderFormScreen(
+              id: int.tryParse(state.pathParameters['id'] ?? ''),
+            ),
           ),
         ],
       ),
@@ -180,7 +209,10 @@ class NotFoundScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('404')),
       body: Center(
-        child: Text('Страница не найдена: $location', textAlign: TextAlign.center),
+        child: Text(
+          'Страница не найдена: $location',
+          textAlign: TextAlign.center,
+        ),
       ),
     );
   }

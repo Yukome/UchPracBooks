@@ -2,6 +2,7 @@ class BookQuery {
   final String search;
   final int? genreId;
   final int? publisherId;
+  final int? authorId;
   final int? yearFrom;
   final int? yearTo;
   final bool? available;
@@ -15,6 +16,7 @@ class BookQuery {
     this.search = '',
     this.genreId,
     this.publisherId,
+    this.authorId,
     this.yearFrom,
     this.yearTo,
     this.available,
@@ -29,6 +31,7 @@ class BookQuery {
     String? search,
     Object? genreId = _unset,
     Object? publisherId = _unset,
+    Object? authorId = _unset,
     Object? yearFrom = _unset,
     Object? yearTo = _unset,
     Object? available = _unset,
@@ -41,7 +44,10 @@ class BookQuery {
     return BookQuery(
       search: search ?? this.search,
       genreId: genreId == _unset ? this.genreId : genreId as int?,
-      publisherId: publisherId == _unset ? this.publisherId : publisherId as int?,
+      publisherId: publisherId == _unset
+          ? this.publisherId
+          : publisherId as int?,
+      authorId: authorId == _unset ? this.authorId : authorId as int?,
       yearFrom: yearFrom == _unset ? this.yearFrom : yearFrom as int?,
       yearTo: yearTo == _unset ? this.yearTo : yearTo as int?,
       available: available == _unset ? this.available : available as bool?,
@@ -52,5 +58,6 @@ class BookQuery {
       includeDeleted: includeDeleted ?? this.includeDeleted,
     );
   }
+
   static const _unset = Object();
 }

@@ -5,7 +5,7 @@ class TableColumnSpec<T> {
   final String? sortField;
   final bool numeric;
   final Widget Function(T item) build;
-  
+
   const TableColumnSpec({
     required this.label,
     required this.build,
@@ -24,7 +24,7 @@ class EntityTable<T> extends StatelessWidget {
   final bool sortAscending;
   final void Function(String field)? onSort;
   final List<Widget> Function(T item)? actions;
-  
+
   const EntityTable({
     super.key,
     required this.columns,
@@ -40,24 +40,46 @@ class EntityTable<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.sizeOf(context).width < 600) {
-      return _buildCards(context);
+    final width = MediaQuery.sizeOf(context).width;
+    if (width < 600) {
+      return _buildCards(context, crossAxisCount: 1);
+    }
+    if (width < 1280) {
+      return _buildCards(context, crossAxisCount: 2);
     }
     return _buildTable(context);
   }
 
   Widget _buildTable(BuildContext context) {
     final sortIndex = _sortColumnIndex();
+    Widget buildCellWrapper(Widget child) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 80, maxWidth: 300),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: DefaultTextStyle(
+            style: const TextStyle(fontSize: 14, color: Colors.black),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            child: child,
+          ),
+        ),
+      );
+    }
 
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: MediaQuery.sizeOf(context).width),
+        child: IntrinsicWidth(
           child: DataTable(
             sortColumnIndex: sortIndex,
             sortAscending: sortAscending,
+            columnSpacing: 30,
+            horizontalMargin: 24,
+            dataRowMinHeight: 44,
+            dataRowMaxHeight: 52,
+            headingRowHeight: 44,
             onSelectAll: onToggleSelect != null
                 ? (bool? value) {
                     if (value == true) {
@@ -76,34 +98,64 @@ class EntityTable<T> extends StatelessWidget {
                   }
                 : null,
             columns: [
-              ...columns.map((col) => DataColumn(
-                label: Text(col.label),
-                numeric: col.numeric,
-                onSort: col.sortField != null && onSort != null
-                    ? (_, __) => onSort!(col.sortField!)
-                    : null,
-              )),
-              if (actions != null) const DataColumn(label: Text('Действия')),
+              ...columns.map(
+                (col) => DataColumn(
+                  label: buildCellWrapper(
+                    Text(
+                      col.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  numeric: col.numeric,
+                  onSort: col.sortField != null && onSort != null
+                      ? (_, _) => onSort!(col.sortField!)
+                      : null,
+                ),
+              ),
+              if (actions != null &&
+                  items.isNotEmpty &&
+                  actions!(items.first).isNotEmpty)
+                DataColumn(
+                  label: buildCellWrapper(
+                    const Text(
+                      'Действия',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
             ],
-            rows: items.map((item) => DataRow(
-              selected: selected.contains(idOf(item)),
-              onSelectChanged: onToggleSelect != null
-                  ? (_) => onToggleSelect!(idOf(item))
-                  : null,
-              cells: [
-                ...columns.map((col) => DataCell(col.build(item))),
-                if (actions != null) DataCell(Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: actions!(item),
-                )),
-              ],
-            )).toList(),
+            rows: items
+                .map(
+                  (item) => DataRow(
+                    selected: selected.contains(idOf(item)),
+                    onSelectChanged: onToggleSelect != null
+                        ? (_) => onToggleSelect!(idOf(item))
+                        : null,
+                    cells: [
+                      ...columns.map(
+                        (col) => DataCell(buildCellWrapper(col.build(item))),
+                      ),
+                      if (actions != null)
+                        DataCell(
+                          buildCellWrapper(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: actions!(item),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                )
+                .toList(),
           ),
         ),
       ),
     );
   }
-  
+
   int? _sortColumnIndex() {
     if (sortField == null) return null;
     final offset = onToggleSelect != null ? 1 : 0;
@@ -111,53 +163,123 @@ class EntityTable<T> extends StatelessWidget {
     return index != -1 ? index + offset : null;
   }
 
-  Widget _buildCards(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    if (onToggleSelect != null)
-                      Checkbox(
-                        value: selected.contains(idOf(item)),
-                        onChanged: (_) => onToggleSelect!(idOf(item)),
-                      ),
-                    Expanded(
-                      child: DefaultTextStyle(
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
-                        child: columns.first.build(item),
-                      ),
-                    ),
-                  ],
-                ),
-                const Divider(),
-                ...columns.skip(1).map((col) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      SizedBox(width: 120, child: Text('${col.label}:', style: const TextStyle(color: Colors.grey))),
-                      Expanded(child: col.build(item)),
-                    ],
-                  ),
-                )),
-                if (actions != null) ...[
-                  const Divider(),
-                  Row(mainAxisAlignment: MainAxisAlignment.end, children: actions!(item)),
-                ]
-              ],
-            ),
+  Widget _buildCards(BuildContext context, {required int crossAxisCount}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double spacing = 12;
+        final double totalWidth = constraints.maxWidth;
+        final double cardWidth = crossAxisCount == 1
+            ? totalWidth - 32
+            : (totalWidth - 32 - spacing) / 2;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Wrap(
+            spacing: spacing,
+            runSpacing: spacing,
+            children: items.map((item) {
+              final isSelected = selected.contains(idOf(item));
+              return SizedBox(
+                width: cardWidth,
+                child: _buildCard(context, item, isSelected),
+              );
+            }).toList(),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCard(BuildContext context, T item, bool isSelected) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: isSelected
+            ? BorderSide(color: Theme.of(context).colorScheme.primary, width: 2)
+            : BorderSide.none,
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onToggleSelect != null
+            ? () => onToggleSelect!(idOf(item))
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (onToggleSelect != null)
+                    Checkbox(
+                      value: isSelected,
+                      onChanged: (_) => onToggleSelect!(idOf(item)),
+                    ),
+                  Expanded(
+                    child: DefaultTextStyle(
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.black,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      child: columns.first.build(item),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 16),
+              ...columns
+                  .skip(1)
+                  .map(
+                    (col) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 100,
+                            child: Text(
+                              '${col.label}:',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Expanded(
+                            child: DefaultTextStyle(
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.black,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              child: col.build(item),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              if (actions != null)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: actions!(item),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

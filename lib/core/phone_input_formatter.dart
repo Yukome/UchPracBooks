@@ -2,7 +2,10 @@ import 'package:flutter/services.dart';
 
 class PhoneInputFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
     if (digits.isEmpty) {
       return newValue.copyWith(text: '');
@@ -16,11 +19,15 @@ class PhoneInputFormatter extends TextInputFormatter {
       }
       if (rest.length > 3) {
         buffer.write(' ');
-        buffer.write(rest.length > 6 ? rest.substring(3, 6) : rest.substring(3));
+        buffer.write(
+          rest.length > 6 ? rest.substring(3, 6) : rest.substring(3),
+        );
       }
       if (rest.length > 6) {
         buffer.write('-');
-        buffer.write(rest.length > 8 ? rest.substring(6, 8) : rest.substring(6));
+        buffer.write(
+          rest.length > 8 ? rest.substring(6, 8) : rest.substring(6),
+        );
       }
       if (rest.length > 8) {
         buffer.write('-');

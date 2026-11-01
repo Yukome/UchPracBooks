@@ -25,9 +25,11 @@ class _ReaderFormScreenState extends State<ReaderFormScreen> {
   @override
   void initState() {
     super.initState();
-    if (isEditing) _loadReader();
-    else _isLoading = false;
-    
+    if (isEditing) {
+      _loadReader();
+    } else {
+      _isLoading = false;
+    }
     _cardNumberController.addListener(() => setState(() {}));
   }
 
@@ -47,17 +49,22 @@ class _ReaderFormScreenState extends State<ReaderFormScreen> {
   }
 
   Future<void> _submit() async {
+    final repo = context.read<ReaderRepository>();
+
     LibraryCard? card;
     if (_hasCard) {
-      final repo = context.read<ReaderRepository>();
       Reader? existingReader;
-      if (isEditing) existingReader = await repo.findById(widget.id!);
-      
+      if (isEditing) {
+        existingReader = await repo.findById(widget.id!);
+      }
+
       card = LibraryCard(
         id: existingReader?.card?.id ?? 0,
         number: _cardNumberController.text.trim(),
         issuedAt: existingReader?.card?.issuedAt ?? DateTime.now(),
-        expiresAt: existingReader?.card?.expiresAt ?? DateTime.now().add(const Duration(days: 365)),
+        expiresAt:
+            existingReader?.card?.expiresAt ??
+            DateTime.now().add(const Duration(days: 365)),
       );
     }
 
@@ -69,14 +76,17 @@ class _ReaderFormScreenState extends State<ReaderFormScreen> {
       card: card,
     );
 
-    final repo = context.read<ReaderRepository>();
-    if (isEditing) await repo.update(reader);
-    else await repo.create(reader);
+    if (isEditing) {
+      await repo.update(reader);
+    } else {
+      await repo.create(reader);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_isLoading)
+      {return const Scaffold(body: Center(child: CircularProgressIndicator()));}
 
     return EntityForm(
       title: isEditing ? 'Редактирование читателя' : 'Новый читатель',
@@ -121,7 +131,10 @@ class _ReaderFormScreenState extends State<ReaderFormScreen> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _cardNumberController,
-              decoration: const InputDecoration(labelText: 'Номер билета (например, RC-000001)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Номер билета (например, RC-000001)',
+                border: OutlineInputBorder(),
+              ),
               validator: (val) => _hasCard ? Validators.required(val) : null,
             ),
           ],

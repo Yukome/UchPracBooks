@@ -46,18 +46,25 @@ class _IssueLoanScreenState extends State<IssueLoanScreen> {
     if (_selectedReaderId == null || _selectedBookId == null) return;
     try {
       final dio = context.read<Dio>();
-      await dio.post('/loans', data: {
-        'readerId': _selectedReaderId,
-        'bookId': _selectedBookId,
-        'days': 14,
-      });
+      await dio.post(
+        '/loans',
+        data: {
+          'readerId': _selectedReaderId,
+          'bookId': _selectedBookId,
+          'days': 14,
+        },
+      );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Книга успешно выдана!')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Книга успешно выдана!')));
         context.go('/');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -67,33 +74,75 @@ class _IssueLoanScreenState extends State<IssueLoanScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Выдать книгу'),
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/')),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/'),
+        ),
       ),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
-        : Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                DropdownButtonFormField<int>(
-                  decoration: const InputDecoration(labelText: 'Читатель', border: OutlineInputBorder()),
-                  items: _readers.map((r) => DropdownMenuItem(value: r.id, child: Text(r.fullName))).toList(),
-                  onChanged: (v) => setState(() => _selectedReaderId = v),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 500),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Оформление выдачи',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 32),
+
+                      DropdownButtonFormField<int>(
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Читатель', 
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.person),
+                        ),
+                        items: _readers.map((r) => DropdownMenuItem(
+                          value: r.id, 
+                          child: Text(r.fullName, overflow: TextOverflow.ellipsis),
+                        )).toList(),
+                        onChanged: (v) => setState(() => _selectedReaderId = v),
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      DropdownButtonFormField<int>(
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Книга (в наличии)', 
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.book),
+                        ),
+                        items: _books.map((b) => DropdownMenuItem(
+                          value: b.id, 
+                          child: Text(b.title, overflow: TextOverflow.ellipsis),
+                        )).toList(),
+                        onChanged: (v) => setState(() => _selectedBookId = v),
+                      ),
+                      const SizedBox(height: 32),
+
+                      FilledButton.icon(
+                        onPressed: _issue,
+                        icon: const Icon(Icons.check),
+                        label: const Text('Оформить выдачу'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          textStyle: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<int>(
-                  decoration: const InputDecoration(labelText: 'Книга (в наличии)', border: OutlineInputBorder()),
-                  items: _books.map((b) => DropdownMenuItem(value: b.id, child: Text(b.title))).toList(),
-                  onChanged: (v) => setState(() => _selectedBookId = v),
-                ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(onPressed: _issue, child: const Text('Оформить выдачу')),
-                )
-              ],
+              ),
             ),
-          ),
     );
   }
 }

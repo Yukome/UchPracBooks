@@ -33,13 +33,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _nameController.text.trim(),
       );
       if (mounted) {
-        await context.read<AuthNotifier>().login(_loginController.text.trim(), _passController.text);
+        await context.read<AuthNotifier>().login(
+          _loginController.text.trim(),
+          _passController.text,
+        );
         if (mounted) context.go('/');
       }
     } on ValidationException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: ${e.errors.values.join(", ")}'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Ошибка: ${e.errors.values.join(", ")}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } catch (e) {
@@ -64,27 +70,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
             padding: const EdgeInsets.all(24.0),
             child: Form(
               key: _formKey,
-              autovalidateMode: AutovalidateMode.onUserInteraction, 
+              autovalidateMode: AutovalidateMode.onUserInteraction,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextFormField(
                     controller: _nameController,
-                    decoration: const InputDecoration(labelText: 'ФИО', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'ФИО',
+                      border: OutlineInputBorder(),
+                    ),
                     validator: (v) => Validators.required(v, 'Введите ФИО'),
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _emailController,
-                    decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(),
+                    ),
                     validator: (v) => Validators.email(v),
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _loginController,
-                    decoration: const InputDecoration(labelText: 'Логин', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Логин',
+                      border: OutlineInputBorder(),
+                    ),
                     validator: (v) {
-                      if (v == null || v.trim().length < 3) return 'Логин должен быть не короче 3 символов';
+                      if (v == null || v.trim().length < 3)
+                        {return 'Логин должен быть не короче 3 символов';}
                       return null;
                     },
                   ),
@@ -92,7 +108,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   TextFormField(
                     controller: _passController,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Пароль', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Пароль',
+                      border: OutlineInputBorder(),
+                    ),
                     validator: (v) => Validators.password(v),
                   ),
                   const SizedBox(height: 24),
@@ -100,8 +119,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: _isLoading ? null : _submit,
-                      child: _isLoading 
-                          ? const CircularProgressIndicator(color: Colors.white) 
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
                           : const Text('Зарегистрироваться'),
                     ),
                   ),

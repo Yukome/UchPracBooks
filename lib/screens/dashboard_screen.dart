@@ -16,6 +16,12 @@ class DashboardScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Библиотека'),
         actions: [
+          if (user?.role == Role.reader)
+            IconButton(
+              icon: const Icon(Icons.list_alt),
+              tooltip: 'Мои выдачи',
+              onPressed: () => context.go('/my-loans'),
+            ),
           Center(child: Text('${user?.fullName} (${user?.role.name})')),
           const SizedBox(width: 16),
           IconButton(
@@ -38,18 +44,43 @@ class DashboardScreen extends StatelessWidget {
                 _buildCard(context, 'Мои выдачи', Icons.list_alt, '/my-loans'),
               _buildCard(context, 'Книги', Icons.book, '/books'),
               if (auth.user?.role == Role.librarian) ...[
-                _buildCard(context, 'Выдать книгу', Icons.add_card, '/issue-loan'),
-                _buildCard(context, 'Управление выдачами', Icons.assignment_return, '/loans-management'),
+                _buildCard(
+                  context,
+                  'Выдать книгу',
+                  Icons.add_card,
+                  '/issue-loan',
+                ),
+                _buildCard(
+                  context,
+                  'Управление выдачами',
+                  Icons.assignment_return,
+                  '/loans-management',
+                ),
               ],
               if (auth.has(Role.librarian)) ...[
                 _buildCard(context, 'Авторы', Icons.person, '/authors'),
-                _buildCard(context, 'Издательства', Icons.business, '/publishers'),
+                _buildCard(
+                  context,
+                  'Издательства',
+                  Icons.business,
+                  '/publishers',
+                ),
                 _buildCard(context, 'Жанры', Icons.category, '/genres'),
                 _buildCard(context, 'Читатели', Icons.group, '/readers'),
               ],
-              if (auth.has(Role.admin)) ... [
-                _buildCard(context, 'Статистика', Icons.analytics, '/admin/stats'),
-                _buildCard(context, 'Пользователи', Icons.manage_accounts, '/admin/users'),
+              if (auth.has(Role.admin)) ...[
+                _buildCard(
+                  context,
+                  'Статистика',
+                  Icons.analytics,
+                  '/admin/stats',
+                ),
+                _buildCard(
+                  context,
+                  'Пользователи',
+                  Icons.manage_accounts,
+                  '/admin/users',
+                ),
               ],
             ],
           ),
@@ -58,7 +89,12 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCard(BuildContext context, String title, IconData icon, String path) {
+  Widget _buildCard(
+    BuildContext context,
+    String title,
+    IconData icon,
+    String path,
+  ) {
     return Card(
       child: ListTile(
         leading: Icon(icon, size: 32),

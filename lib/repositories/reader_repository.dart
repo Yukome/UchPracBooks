@@ -4,7 +4,10 @@ import '../models/reader_query.dart';
 import '../models/page_result.dart';
 
 abstract interface class ReaderRepository {
-  Future<PageResult<Reader>> find(ReaderQuery query, {CancelToken? cancelToken});
+  Future<PageResult<Reader>> find(
+    ReaderQuery query, {
+    CancelToken? cancelToken,
+  });
   Future<Reader?> findById(int id);
   Future<Reader> create(Reader reader);
   Future<Reader> update(Reader reader);

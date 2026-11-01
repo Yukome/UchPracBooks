@@ -44,6 +44,8 @@ class Publisher {
     name: json['name'] as String? ?? '',
     city: json['city'] as String? ?? '',
     foundedYear: json['foundedYear'] as int?,
-    deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
+    deletedAt: json['deletedAt'] == null
+        ? null
+        : DateTime.parse(json['deletedAt'] as String),
   );
 }

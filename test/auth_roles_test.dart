@@ -21,9 +21,6 @@ void main() {
 
   group('Логика разграничения прав (Role)', () {
     test('Читатель не имеет прав библиотекаря и администратора', () {
-      final readerUser = const AppUser(
-        id: 1, username: 'reader', fullName: 'Читатель', email: '', role: Role.reader,
-      );
       expect(Role.reader.level >= Role.reader.level, isTrue);
       expect(Role.reader.level >= Role.librarian.level, isFalse);
       expect(Role.reader.level >= Role.admin.level, isFalse);

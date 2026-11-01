@@ -26,10 +26,10 @@ class _LoginScreenState extends State<LoginScreen> {
         _loginController.text.trim(),
         _passController.text,
       );
-      
+
       if (mounted) {
         await Future.delayed(const Duration(milliseconds: 300));
-        
+
         if (mounted) {
           if (from != null && from.isNotEmpty) {
             context.go(Uri.decodeComponent(from));
@@ -41,7 +41,10 @@ class _LoginScreenState extends State<LoginScreen> {
     } on UnauthorizedException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Неверный логин или пароль'), backgroundColor: Colors.red),
+          const SnackBar(
+            content: Text('Неверный логин или пароль'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } catch (e) {
@@ -71,23 +74,31 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   TextFormField(
                     controller: _loginController,
-                    decoration: const InputDecoration(labelText: 'Логин', border: OutlineInputBorder()),
-                    validator: (v) => v == null || v.trim().isEmpty ? 'Введите логин' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Логин',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty ? 'Введите логин' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _passController,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Пароль', border: OutlineInputBorder()),
-                    validator: (v) => v == null || v.isEmpty ? 'Введите пароль' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Пароль',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Введите пароль' : null,
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: _isLoading ? null : _submit,
-                      child: _isLoading 
-                          ? const CircularProgressIndicator(color: Colors.white) 
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
                           : const Text('Войти'),
                     ),
                   ),

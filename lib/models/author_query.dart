@@ -44,5 +44,6 @@ class AuthorQuery {
       includeDeleted: includeDeleted ?? this.includeDeleted,
     );
   }
+
   static const _unset = Object();
 }

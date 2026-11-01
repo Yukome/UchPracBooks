@@ -22,8 +22,11 @@ class _PublisherFormScreenState extends State<PublisherFormScreen> {
   @override
   void initState() {
     super.initState();
-    if (isEditing) _loadPublisher();
-    else _isLoading = false;
+    if (isEditing) {
+      _loadPublisher();
+    } else {
+      _isLoading = false;
+    }
   }
 
   Future<void> _loadPublisher() async {
@@ -45,13 +48,17 @@ class _PublisherFormScreenState extends State<PublisherFormScreen> {
       foundedYear: int.tryParse(_yearController.text),
     );
     final repo = context.read<PublisherRepository>();
-    if (isEditing) await repo.update(publisher);
-    else await repo.create(publisher);
+    if (isEditing) {
+      await repo.update(publisher);
+    } else {
+      await repo.create(publisher);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_isLoading)
+      {return const Scaffold(body: Center(child: CircularProgressIndicator()));}
 
     return EntityForm(
       title: isEditing ? 'Редактирование издательства' : 'Новое издательство',

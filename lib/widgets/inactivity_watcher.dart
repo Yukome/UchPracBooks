@@ -53,7 +53,9 @@ class _InactivityWatcherState extends State<InactivityWatcher> {
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
           title: const Text('Вы всё еще здесь?'),
-          content: Text('Ваша сессия будет завершена через ${widget.warningTime.inSeconds} секунд из-за неактивности.'),
+          content: Text(
+            'Ваша сессия будет завершена через ${widget.warningTime.inSeconds} секунд из-за неактивности.',
+          ),
           actions: [
             FilledButton(
               onPressed: () {

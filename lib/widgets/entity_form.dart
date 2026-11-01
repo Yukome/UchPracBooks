@@ -79,7 +79,7 @@ class _EntityFormState extends State<EntityForm> {
   Future<void> _handleSubmit() async {
     setState(() => _serverErrors = {});
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _isSaving = true);
     try {
       await widget.onSubmit();
@@ -107,9 +107,9 @@ class _EntityFormState extends State<EntityForm> {
 
   void _showSnackBar(String message, Color color) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: color),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 
   Future<void> _onPopInvoked(bool didPop, Object? result) async {
@@ -121,19 +121,24 @@ class _EntityFormState extends State<EntityForm> {
 
     final shouldPop = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Несохранённые изменения'),
-        content: const Text('Вы уверены, что хотите уйти? Все введённые данные будут потеряны.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Остаться'),
+      builder: (context) => ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 450),
+        child: AlertDialog(
+          title: const Text('Несохранённые изменения'),
+          content: const Text(
+            'Вы уверены, что хотите уйти? Все введённые данные будут потеряны.',
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Уйти', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Остаться'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Уйти', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
       ),
     );
 
@@ -173,11 +178,14 @@ class _EntityFormState extends State<EntityForm> {
                           labelText: field.label,
                           hintText: field.hint,
                           border: const OutlineInputBorder(),
-                          errorText: field.fieldKey != null ? _serverErrors[field.fieldKey] : null,
+                          errorText: field.fieldKey != null
+                              ? _serverErrors[field.fieldKey]
+                              : null,
                         ),
                         keyboardType: field.keyboardType,
                         validator: (val) {
-                          if (field.fieldKey != null && _serverErrors.containsKey(field.fieldKey)) {
+                          if (field.fieldKey != null &&
+                              _serverErrors.containsKey(field.fieldKey)) {
                             return _serverErrors[field.fieldKey];
                           }
                           return field.validator?.call(val);
@@ -187,16 +195,18 @@ class _EntityFormState extends State<EntityForm> {
                       ),
                       const SizedBox(height: 16),
                     ],
-                    
+
                     if (widget.customContent != null) widget.customContent!,
-                    
+
                     const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: _isSaving ? null : _handleSubmit,
-                        child: _isSaving 
-                            ? const CircularProgressIndicator(color: Colors.white)
+                        child: _isSaving
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
                             : Text(widget.isEditing ? 'Сохранить' : 'Создать'),
                       ),
                     ),

@@ -43,19 +43,26 @@ void addInterceptors(Dio dio) {
       },
       onResponse: (response, handler) async {
         final status = response.statusCode ?? 0;
-        if (kDebugMode) debugPrint('<-- ${response.statusCode} ${response.requestOptions.uri}');
+        if (kDebugMode) {
+          debugPrint(
+            '<-- ${response.statusCode} ${response.requestOptions.uri}',
+          );
+        }
         final path = response.requestOptions.path;
-        if (status == 401 && !path.contains('/auth/login') && !path.contains('/auth/refresh')) {
-          if (kDebugMode) debugPrint('[API] 401 Unauthorized. Пытаемся обновить токен...');
-          
+        if (status == 401 &&
+            !path.contains('/auth/login') &&
+            !path.contains('/auth/refresh')) {
+          if (kDebugMode)
+            {debugPrint('[API] 401 Unauthorized. Пытаемся обновить токен...');}
           if (onTokenRefresh != null) {
             final newToken = await onTokenRefresh!();
-            
+
             if (newToken != null) {
-              if (kDebugMode) debugPrint('[API] Токен обновлен! Повторяем запрос...');
+              if (kDebugMode)
+                {debugPrint('[API] Токен обновлен! Повторяем запрос...');}
               final options = response.requestOptions;
               options.headers['Authorization'] = 'Bearer $newToken';
-              
+
               try {
                 final retryResponse = await dio.fetch(options);
                 return handler.resolve(retryResponse);
@@ -63,7 +70,8 @@ void addInterceptors(Dio dio) {
                 return handler.reject(e);
               }
             } else {
-              if (kDebugMode) debugPrint('[API] Не удалось обновить токен. Выходим.');
+              if (kDebugMode)
+                {debugPrint('[API] Не удалось обновить токен. Выходим.');}
               if (onAuthFailed != null) onAuthFailed!();
             }
           }
@@ -83,11 +91,13 @@ void addInterceptors(Dio dio) {
         return handler.next(response);
       },
       onError: (error, handler) async {
-        if (kDebugMode) debugPrint('[API] сбой ${error.requestOptions.uri}: ${error.type}');
+        if (kDebugMode)
+          {debugPrint('[API] сбой ${error.requestOptions.uri}: ${error.type}');}
 
         if (!_shouldRetry(error)) return handler.next(error);
 
-        final attempt = (error.requestOptions.extra['_retryAttempt'] as int?) ?? 1;
+        final attempt =
+            (error.requestOptions.extra['_retryAttempt'] as int?) ?? 1;
         if (attempt >= _maxAttempts) return handler.next(error);
 
         final delay = _retryDelays[attempt - 1];
@@ -108,13 +118,22 @@ void addInterceptors(Dio dio) {
 }
 
 bool _shouldRetry(DioException error) {
-  if (error.requestOptions.method.toUpperCase() != 'GET') return false;
-  if (error.type == DioExceptionType.cancel) return false;
+  if (error.requestOptions.method.toUpperCase() != 'GET') {
+    return false;
+  }
+  if (error.type == DioExceptionType.cancel) {
+    return false;
+  }
   if (error.type == DioExceptionType.connectionTimeout ||
       error.type == DioExceptionType.sendTimeout ||
       error.type == DioExceptionType.receiveTimeout ||
-      error.type == DioExceptionType.connectionError) return true;
+      error.type == DioExceptionType.connectionError) {
+    return true;
+  }
+
   final status = error.response?.statusCode;
-  if (status != null && status >= 500) return true;
+  if (status != null && status >= 500) {
+    return true;
+  }
   return false;
 }

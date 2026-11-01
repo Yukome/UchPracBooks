@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../state/book_list_notifier.dart';
 import '../widgets/entity_table.dart';
 import '../widgets/pagination_bar.dart';
+import '../widgets/book_grid.dart';
 import '../models/book.dart';
 import '../models/book_query.dart';
 import '../models/publisher.dart';
@@ -13,6 +14,7 @@ import '../repositories/publisher_repository.dart';
 import '../repositories/book_repository.dart';
 import '../models/filter_data.dart';
 import '../state/auth_notifier.dart';
+import '../state/reference_data_notifier.dart';
 import '../models/app_user.dart';
 import '../main.dart';
 
@@ -34,21 +36,31 @@ class _BookListScreenState extends State<BookListScreen> with RouteAware {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final pubRepo = context.read<PublisherRepository>();
+      final refNotifier = context.read<ReferenceDataNotifier>();
+      final bookNotifier = context.read<BookListNotifier>();
+
       final pubsResult = await pubRepo.find(const PublisherQuery(size: 1000));
-      if (mounted) setState(() => _publishers = pubsResult.items);
+
+      if (!mounted) return;
+      setState(() => _publishers = pubsResult.items);
       setState(() => _availableGenreIds = genres.keys.toList());
+
+      refNotifier.ensureLoaded();
+
       final uri = GoRouterState.of(context).uri;
       final q = uri.queryParameters;
-      
+
       if (q.isNotEmpty) {
-        final currentQuery = context.read<BookListNotifier>().query;
-        context.read<BookListNotifier>().applyQuery(
+        final currentQuery = bookNotifier.query;
+        bookNotifier.applyQuery(
           currentQuery.copyWith(
             search: q['search'] ?? '',
             genreId: int.tryParse(q['genreId'] ?? ''),
             publisherId: int.tryParse(q['publisherId'] ?? ''),
+            authorId: int.tryParse(q['authorId'] ?? ''),
             yearFrom: int.tryParse(q['yearFrom'] ?? ''),
             yearTo: int.tryParse(q['yearTo'] ?? ''),
+            available: q['available'] == 'true' ? true : null,
             sortField: q['sortField'] ?? 'title',
             sortAscending: q['sortAscending'] != 'false',
             page: int.tryParse(q['page'] ?? '1') ?? 1,
@@ -82,25 +94,33 @@ class _BookListScreenState extends State<BookListScreen> with RouteAware {
     context.read<BookListNotifier>().applyQuery(newQuery);
     final uri = GoRouterState.of(context).uri;
     final newParams = <String, String>{};
-    
+
     if (newQuery.search.isNotEmpty) newParams['search'] = newQuery.search;
-    if (newQuery.genreId != null) newParams['genreId'] = newQuery.genreId.toString();
-    if (newQuery.publisherId != null) newParams['publisherId'] = newQuery.publisherId.toString();
-    if (newQuery.yearFrom != null) newParams['yearFrom'] = newQuery.yearFrom.toString();
-    if (newQuery.yearTo != null) newParams['yearTo'] = newQuery.yearTo.toString();
-    if (newQuery.sortField != 'title') newParams['sortField'] = newQuery.sortField;
+    if (newQuery.genreId != null)
+      {newParams['genreId'] = newQuery.genreId.toString();}
+    if (newQuery.publisherId != null)
+      {newParams['publisherId'] = newQuery.publisherId.toString();}
+    if (newQuery.authorId != null)
+      {newParams['authorId'] = newQuery.authorId.toString();}
+    if (newQuery.yearFrom != null)
+      {newParams['yearFrom'] = newQuery.yearFrom.toString();}
+    if (newQuery.yearTo != null)
+      {newParams['yearTo'] = newQuery.yearTo.toString();}
+    if (newQuery.available == true) newParams['available'] = 'true';
+    if (newQuery.sortField != 'title')
+      {newParams['sortField'] = newQuery.sortField;}
     if (!newQuery.sortAscending) newParams['sortAscending'] = 'false';
     if (newQuery.page != 1) newParams['page'] = newQuery.page.toString();
     if (newQuery.size != 10) newParams['size'] = newQuery.size.toString();
     if (newQuery.includeDeleted) newParams['includeDeleted'] = 'true';
-    
+
     context.go(uri.replace(queryParameters: newParams).toString());
   }
 
   Future<void> _onPublisherFilterChanged(int? publisherId) async {
     final newQuery = context.read<BookListNotifier>().query.copyWith(
       publisherId: publisherId,
-      genreId: null, 
+      genreId: null,
       page: 1,
     );
 
@@ -108,20 +128,21 @@ class _BookListScreenState extends State<BookListScreen> with RouteAware {
       setState(() => _availableGenreIds = genres.keys.toList());
     } else {
       final repo = context.read<BookRepository>();
-      final result = await repo.find(BookQuery(publisherId: publisherId, size: 1000));
-      
+      final result = await repo.find(
+        BookQuery(publisherId: publisherId, size: 1000),
+      );
       final genreIds = <int>{};
       for (final book in result.items) {
         genreIds.addAll(book.genreIds);
       }
-
       if (mounted) {
         setState(() {
-          _availableGenreIds = genreIds.isEmpty ? genres.keys.toList() : genreIds.toList();
+          _availableGenreIds = genreIds.isEmpty
+              ? genres.keys.toList()
+              : genreIds.toList();
         });
       }
     }
-
     _updateQuery(newQuery);
   }
 
@@ -129,7 +150,9 @@ class _BookListScreenState extends State<BookListScreen> with RouteAware {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () {
       if (!mounted) return;
-      _updateQuery(context.read<BookListNotifier>().query.copyWith(search: value, page: 1));
+      _updateQuery(
+        context.read<BookListNotifier>().query.copyWith(search: value, page: 1),
+      );
     });
   }
 
@@ -137,8 +160,12 @@ class _BookListScreenState extends State<BookListScreen> with RouteAware {
   Widget build(BuildContext context) {
     final notifier = context.watch<BookListNotifier>();
     final auth = context.watch<AuthNotifier>();
+    final refData = context.watch<ReferenceDataNotifier>();
     final isLibrarian = auth.has(Role.librarian);
     final isAdmin = auth.has(Role.admin);
+    final isReader = auth.user?.role == Role.reader;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isSidePagination = screenWidth >= 600 && screenWidth < 1280;
 
     return Scaffold(
       appBar: AppBar(
@@ -162,238 +189,499 @@ class _BookListScreenState extends State<BookListScreen> with RouteAware {
               _updateQuery(const BookQuery());
             },
             icon: const Icon(Icons.clear_all),
-            label: const Text('Сбросить', style: TextStyle(color: Color.fromARGB(255, 18, 15, 20))),
+            label: const Text(
+              'Сбросить',
+              style: TextStyle(color: Color.fromARGB(255, 18, 15, 20)),
+            ),
           ),
         ],
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      labelText: 'Поиск по названию или ISBN',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: _onSearchChanged,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                if (notifier.hasSelection && isLibrarian)
-                  FilledButton.icon(
-                    onPressed: () async {
-                      try {
-                        await context.read<BookListNotifier>().deleteSelected();
-                        if (!mounted) return;
-                        context.read<BookListNotifier>().load();
-                      } catch (e) {
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isNarrow = constraints.maxWidth < 500;
+                        final searchField = TextField(
+                          decoration: const InputDecoration(
+                            labelText: 'Поиск по названию или ISBN',
+                            prefixIcon: Icon(Icons.search),
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          onChanged: _onSearchChanged,
                         );
-                      }
-                    },
-                    icon: const Icon(Icons.delete),
-                    label: Text('Удалить (${notifier.selected.length})'),
-                    style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                  )
-              ],
+                        final deleteButton =
+                            (notifier.hasSelection && isLibrarian)
+                            ? FilledButton.icon(
+                                onPressed: () async {
+                                  final messenger = ScaffoldMessenger.of(
+                                    context,
+                                  );
+                                  final bookNotifier = context
+                                      .read<BookListNotifier>();
+
+                                  try {
+                                    await bookNotifier.deleteSelected();
+                                    if (!mounted) return;
+                                    bookNotifier.load();
+                                  } catch (e) {
+                                    if (!mounted) return;
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text(e.toString()),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                },
+                                icon: const Icon(Icons.delete),
+                                label: Text(
+                                  'Удалить (${notifier.selected.length})',
+                                ),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                ),
+                              )
+                            : null;
+
+                        if (isNarrow) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              searchField,
+                              if (deleteButton != null) ...[
+                                const SizedBox(height: 12),
+                                deleteButton,
+                              ],
+                            ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            Expanded(child: searchField),
+                            if (deleteButton != null) ...[
+                              const SizedBox(width: 12),
+                              deleteButton,
+                            ],
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 180),
+                          child: DropdownButtonFormField<int?>(
+                            value: notifier.query.genreId,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Жанр',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            items: [
+                              const DropdownMenuItem(
+                                value: null,
+                                child: Text(
+                                  'Все',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              ...genres.entries
+                                  .where(
+                                    (e) => _availableGenreIds.contains(e.key),
+                                  )
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e.key,
+                                      child: Text(
+                                        e.value,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                            ],
+                            onChanged: (val) => _updateQuery(
+                              notifier.query.copyWith(genreId: val, page: 1),
+                            ),
+                          ),
+                        ),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 180),
+                          child: DropdownButtonFormField<int?>(
+                            value: notifier.query.publisherId,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Издательство',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            items: [
+                              const DropdownMenuItem(
+                                value: null,
+                                child: Text(
+                                  'Все',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              ..._publishers.map(
+                                (p) => DropdownMenuItem(
+                                  value: p.id,
+                                  child: Text(
+                                    p.name,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: (val) => _onPublisherFilterChanged(val),
+                          ),
+                        ),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 180),
+                          child: DropdownButtonFormField<int?>(
+                            value: notifier.query.authorId,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Автор',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            items: [
+                              const DropdownMenuItem(
+                                value: null,
+                                child: Text(
+                                  'Все',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              ...refData.authors.map(
+                                (a) => DropdownMenuItem(
+                                  value: a.id,
+                                  child: Text(
+                                    a.fullName,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: (val) => _updateQuery(
+                              notifier.query.copyWith(authorId: val, page: 1),
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 100,
+                          child: TextFormField(
+                            initialValue: notifier.query.yearFrom?.toString(),
+                            decoration: const InputDecoration(
+                              labelText: 'Год от',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            keyboardType: TextInputType.number,
+                            onFieldSubmitted: (val) => _updateQuery(
+                              notifier.query.copyWith(
+                                yearFrom: int.tryParse(val),
+                                page: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 100,
+                          child: TextFormField(
+                            initialValue: notifier.query.yearTo?.toString(),
+                            decoration: const InputDecoration(
+                              labelText: 'Год до',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            keyboardType: TextInputType.number,
+                            onFieldSubmitted: (val) => _updateQuery(
+                              notifier.query.copyWith(
+                                yearTo: int.tryParse(val),
+                                page: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          height: 48,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Checkbox(
+                                value: notifier.query.available ?? false,
+                                onChanged: (val) => _updateQuery(
+                                  notifier.query.copyWith(
+                                    available: val,
+                                    page: 1,
+                                  ),
+                                ),
+                              ),
+                              const Text('В наличии'),
+                            ],
+                          ),
+                        ),
+                        if (isAdmin)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Checkbox(
+                                value: notifier.query.includeDeleted,
+                                onChanged: (val) => _updateQuery(
+                                  notifier.query.copyWith(
+                                    includeDeleted: val,
+                                    page: 1,
+                                  ),
+                                ),
+                              ),
+                              const Text('Показать удалённые'),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 180),
-                  child: DropdownButtonFormField<int?>(
-                    value: notifier.query.genreId,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Жанр', border: OutlineInputBorder(), isDense: true),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('Все', overflow: TextOverflow.ellipsis)),
-                      ...genres.entries
-                          .where((e) => _availableGenreIds.contains(e.key))
-                          .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, overflow: TextOverflow.ellipsis))),
-                    ],
-                    onChanged: (val) => _updateQuery(notifier.query.copyWith(genreId: val, page: 1)),
-                  ),
-                ),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 180),
-                  child: DropdownButtonFormField<int?>(
-                    value: notifier.query.publisherId,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Издательство', border: OutlineInputBorder(), isDense: true),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('Все', overflow: TextOverflow.ellipsis)),
-                      ..._publishers.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name, overflow: TextOverflow.ellipsis))),
-                    ],
-                    onChanged: (val) => _onPublisherFilterChanged(val),
-                  ),
-                ),
-                SizedBox(
-                  width: 100,
-                  child: TextFormField(
-                    initialValue: notifier.query.yearFrom?.toString(),
-                    decoration: const InputDecoration(labelText: 'Год от', border: OutlineInputBorder(), isDense: true),
-                    keyboardType: TextInputType.number,
-                    onFieldSubmitted: (val) => _updateQuery(notifier.query.copyWith(yearFrom: int.tryParse(val), page: 1)),
-                  ),
-                ),
-                SizedBox(
-                  width: 100,
-                  child: TextFormField(
-                    initialValue: notifier.query.yearTo?.toString(),
-                    decoration: const InputDecoration(labelText: 'Год до', border: OutlineInputBorder(), isDense: true),
-                    keyboardType: TextInputType.number,
-                    onFieldSubmitted: (val) => _updateQuery(notifier.query.copyWith(yearTo: int.tryParse(val), page: 1)),
-                  ),
-                ),
-                if (isAdmin)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Checkbox(
-                        value: notifier.query.includeDeleted,
-                        onChanged: (val) => _updateQuery(notifier.query.copyWith(includeDeleted: val, page: 1)),
-                      ),
-                      const Text('Показать удалённые'),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-          
           const SizedBox(height: 8),
 
           Expanded(
             child: switch (notifier.status) {
-              LoadStatus.idle || LoadStatus.loading => 
-                const Center(child: CircularProgressIndicator()),
-              LoadStatus.error => 
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(notifier.error ?? 'Ошибка'),
-                      const SizedBox(height: 8),
-                      FilledButton(
-                        onPressed: () => context.read<BookListNotifier>().load(),
-                        child: const Text('Повторить'),
-                      ),
-                    ],
-                  ),
-                ),
-              LoadStatus.success when notifier.result.items.isEmpty => 
-                const Center(child: Text('Книг не найдено')),
-              LoadStatus.success => 
-                Column(
+              LoadStatus.idle || LoadStatus.loading => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              LoadStatus.error => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: EntityTable<Book>(
-                        items: notifier.result.items,
-                        idOf: (b) => b.id,
-                        selected: isLibrarian ? notifier.selected : const {},
-                        onToggleSelect: isLibrarian ? (id) => context.read<BookListNotifier>().toggleSelection(id) : null,
-                        sortField: notifier.query.sortField,
-                        sortAscending: notifier.query.sortAscending,
-                        onSort: (field) => _updateQuery(
-                          notifier.query.copyWith(
-                            sortField: field,
-                            sortAscending: field == notifier.query.sortField
-                                ? !notifier.query.sortAscending
-                                : true,
-                          ),
-                        ),
-                        columns: [
-                          TableColumnSpec(label: 'Название', sortField: 'title', build: (b) => Text(
-                            b.title, 
-                            style: TextStyle(
-                              decoration: b.isDeleted ? TextDecoration.lineThrough : null,
-                              color: b.isDeleted ? Colors.grey : null,
-                            )
-                          )),
-                          TableColumnSpec(label: 'Год', sortField: 'year', numeric: true, build: (b) => Text('${b.year}')),
-                          TableColumnSpec(label: 'Страниц', sortField: 'pages', numeric: true, build: (b) => Text('${b.pages}')),
-                          TableColumnSpec(label: 'Экземпляры', build: (b) => Text('${b.copiesAvailable} / ${b.copiesTotal}')),
-                        ],
-                        actions: (b) {
-                          if (!isLibrarian) return [];
-                          return [
-                            IconButton(
-                              icon: const Icon(Icons.edit), 
-                              onPressed: b.isDeleted ? null : () => context.go('/books/${b.id}/edit'),
-                            ),
-                            if (b.isDeleted) 
-                              if (isAdmin) 
-                                IconButton(
-                                  icon: const Icon(Icons.restore, color: Colors.green),
-                                  tooltip: 'Восстановить',
-                                  onPressed: () async {
-                                    try {
-                                      await context.read<BookListNotifier>().restoreOne(b.id);
-                                      if (!mounted) return;
-                                      context.read<BookListNotifier>().load();
-                                    } catch (e) {
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-                                      );
-                                    }
-                                  },
-                                ),
-                            if (!b.isDeleted) 
-                              PopupMenuButton<String>(
-                                icon: const Icon(Icons.more_vert),
-                                tooltip: 'Действия',
-                                onSelected: (value) async {
-                                  try {
-                                    if (value == 'soft') {
-                                      await context.read<BookListNotifier>().deleteOne(b.id);
-                                    } else if (value == 'hard' && isAdmin) {
-                                      await context.read<BookListNotifier>().hardDeleteOne(b.id);
-                                    }
-                                    if (!mounted) return;
-                                    context.read<BookListNotifier>().load();
-                                  } catch (e) {
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-                                    );
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  const PopupMenuItem(value: 'soft', child: Text('В корзину (логически)')),
-                                  if (isAdmin)
-                                    const PopupMenuItem(value: 'hard', child: Text('Удалить навсегда', style: TextStyle(color: Colors.red))),
-                                ],
-                              ),
-                          ];
-                        },
-                      ),
-                    ),
-                    
-                    PaginationBar(
-                      currentPage: notifier.query.page,
-                      totalPages: notifier.result.totalPages,
-                      totalItems: notifier.result.total,
-                      pageSize: notifier.query.size,
-                      hasPrevious: notifier.result.hasPrevious,
-                      hasNext: notifier.result.hasNext,
-                      onPageChanged: (p) => _updateQuery(notifier.query.copyWith(page: p)),
-                      onSizeChanged: (s) => _updateQuery(notifier.query.copyWith(size: s, page: 1)),
+                    Text(notifier.error ?? 'Ошибка'),
+                    const SizedBox(height: 8),
+                    FilledButton(
+                      onPressed: () => context.read<BookListNotifier>().load(),
+                      child: const Text('Повторить'),
                     ),
                   ],
                 ),
+              ),
+              LoadStatus.success when notifier.result.items.isEmpty =>
+                const Center(child: Text('Книг не найдено')),
+              LoadStatus.success => Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: isReader
+                              ? BookGrid(books: notifier.result.items)
+                              : EntityTable<Book>(
+                                  items: notifier.result.items,
+                                  idOf: (b) => b.id,
+                                  selected: isLibrarian
+                                      ? notifier.selected
+                                      : const {},
+                                  onToggleSelect: isLibrarian
+                                      ? (id) => context
+                                            .read<BookListNotifier>()
+                                            .toggleSelection(id)
+                                      : null,
+                                  sortField: notifier.query.sortField,
+                                  sortAscending: notifier.query.sortAscending,
+                                  onSort: (field) => _updateQuery(
+                                    notifier.query.copyWith(
+                                      sortField: field,
+                                      sortAscending:
+                                          field == notifier.query.sortField
+                                          ? !notifier.query.sortAscending
+                                          : true,
+                                    ),
+                                  ),
+                                  columns: [
+                                    TableColumnSpec(
+                                      label: 'Название',
+                                      sortField: 'title',
+                                      build: (b) => Text(
+                                        b.title,
+                                        style: TextStyle(
+                                          decoration: b.isDeleted
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                          color: b.isDeleted
+                                              ? Colors.grey
+                                              : null,
+                                        ),
+                                      ),
+                                    ),
+                                    TableColumnSpec(
+                                      label: 'Год',
+                                      sortField: 'year',
+                                      numeric: true,
+                                      build: (b) => Text('${b.year}'),
+                                    ),
+                                    TableColumnSpec(
+                                      label: 'Страниц',
+                                      sortField: 'pages',
+                                      numeric: true,
+                                      build: (b) => Text('${b.pages}'),
+                                    ),
+                                    TableColumnSpec(
+                                      label: 'Экземпляры',
+                                      build: (b) => Text(
+                                        '${b.copiesAvailable} / ${b.copiesTotal}',
+                                      ),
+                                    ),
+                                  ],
+                                  actions: (b) {
+                                    if (!isLibrarian) return [];
+                                    return [
+                                      IconButton(
+                                        icon: const Icon(Icons.edit),
+                                        onPressed: b.isDeleted
+                                            ? null
+                                            : () => context.go(
+                                                '/books/${b.id}/edit',
+                                              ),
+                                      ),
+                                      if (b.isDeleted)
+                                        if (isAdmin)
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.restore,
+                                              color: Colors.green,
+                                            ),
+                                            tooltip: 'Восстановить',
+                                            onPressed: () async {
+                                              final messenger =
+                                                  ScaffoldMessenger.of(context);
+                                              final bookNotifier = context
+                                                  .read<BookListNotifier>();
+
+                                              try {
+                                                await bookNotifier.restoreOne(
+                                                  b.id,
+                                                );
+                                                if (!mounted) return;
+                                                bookNotifier.load();
+                                              } catch (e) {
+                                                if (!mounted) return;
+                                                messenger.showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(e.toString()),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                          ),
+                                      if (!b.isDeleted)
+                                        PopupMenuButton<String>(
+                                          icon: const Icon(Icons.more_vert),
+                                          tooltip: 'Действия',
+                                          onSelected: (value) async {
+                                            final messenger =
+                                                ScaffoldMessenger.of(context);
+                                            final bookNotifier = context
+                                                .read<BookListNotifier>();
+
+                                            try {
+                                              if (value == 'soft') {
+                                                await bookNotifier.deleteOne(
+                                                  b.id,
+                                                );
+                                              } else if (value == 'hard' &&
+                                                  isAdmin) {
+                                                await bookNotifier
+                                                    .hardDeleteOne(b.id);
+                                              }
+                                              if (!mounted) return;
+                                              bookNotifier.load();
+                                            } catch (e) {
+                                              if (!mounted) return;
+                                              messenger.showSnackBar(
+                                                SnackBar(
+                                                  content: Text(e.toString()),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                          itemBuilder: (context) => [
+                                            const PopupMenuItem(
+                                              value: 'soft',
+                                              child: Text(
+                                                'В корзину (логически)',
+                                              ),
+                                            ),
+                                            if (isAdmin)
+                                              const PopupMenuItem(
+                                                value: 'hard',
+                                                child: Text(
+                                                  'Удалить навсегда',
+                                                  style: TextStyle(
+                                                    color: Colors.red,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                    ];
+                                  },
+                                ),
+                        ),
+                        if (!isSidePagination)
+                          PaginationBar(
+                            currentPage: notifier.query.page,
+                            totalPages: notifier.result.totalPages,
+                            totalItems: notifier.result.total,
+                            pageSize: notifier.query.size,
+                            hasPrevious: notifier.result.hasPrevious,
+                            hasNext: notifier.result.hasNext,
+                            onPageChanged: (p) =>
+                                _updateQuery(notifier.query.copyWith(page: p)),
+                            onSizeChanged: (s) => _updateQuery(
+                              notifier.query.copyWith(size: s, page: 1),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (isSidePagination)
+                    SizedBox(
+                      width: 80,
+                      child: PaginationBar(
+                        currentPage: notifier.query.page,
+                        totalPages: notifier.result.totalPages,
+                        totalItems: notifier.result.total,
+                        pageSize: notifier.query.size,
+                        hasPrevious: notifier.result.hasPrevious,
+                        hasNext: notifier.result.hasNext,
+                        onPageChanged: (p) =>
+                            _updateQuery(notifier.query.copyWith(page: p)),
+                        onSizeChanged: (s) => _updateQuery(
+                          notifier.query.copyWith(size: s, page: 1),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             },
           ),
         ],

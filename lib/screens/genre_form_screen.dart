@@ -21,8 +21,11 @@ class _GenreFormScreenState extends State<GenreFormScreen> {
   @override
   void initState() {
     super.initState();
-    if (isEditing) _loadGenre();
-    else _isLoading = false;
+    if (isEditing) {
+      _loadGenre();
+    } else {
+      _isLoading = false;
+    }
   }
 
   Future<void> _loadGenre() async {
@@ -42,13 +45,17 @@ class _GenreFormScreenState extends State<GenreFormScreen> {
       description: _descriptionController.text.trim(),
     );
     final repo = context.read<GenreRepository>();
-    if (isEditing) await repo.update(genre);
-    else await repo.create(genre);
+    if (isEditing) {
+      await repo.update(genre);
+    } else {
+      await repo.create(genre);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_isLoading)
+      {return const Scaffold(body: Center(child: CircularProgressIndicator()));}
 
     return EntityForm(
       title: isEditing ? 'Редактирование жанра' : 'Новый жанр',
